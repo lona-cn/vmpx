@@ -1,0 +1,303 @@
+openapi: 3.0.1
+info:
+  title: vmpx
+  description: ''
+  version: 1.0.0
+tags: []
+paths:
+  /api/v1/gen_random_product_info:
+    post:
+      summary: 生成随机的ProductInfo
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key_size:
+                  type: integer
+              required:
+                - key_size
+            example:
+              key_size: 2048
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key_size:
+                    type: integer
+                  modulus:
+                    type: string
+                  public_exponent:
+                    type: string
+                  private_exponent:
+                    type: string
+                  product_code:
+                    type: string
+                required:
+                  - key_size
+                  - modulus
+                  - public_exponent
+                  - private_exponent
+                  - product_code
+              example:
+                key_size: 2048
+                modulus: >-
+                  70Pkf/3N7PrXTk8X1jizw60JEVDoBx7E+xsN4NOA41TFV4TAmAklyYXos1vJmSsn9i1qTJbl4z/qHkTzUctwF6OrpvkyoeUKU+iLqeDsyVPyGQPGMZIwH6RODyZoibDNhsCLx196vTvw/KaQ2SijKUX6mgrMRyr5aY26QzRNGqx709pC9AsF6LOKOOtTxqFNB/pCUXbc7bmoyp7aNBq8+skk5sNavuejbnzwPXuad6zALPXL1+0XL+ye62qGHVd0aH67Rs351P3zeJhmOl3y9g7SpmuO+4Cj62MAgIOw7Bd7wLJFG2nUsVkp4aYbKrbFsdF3ynlyt/MznG14gTvtlw==
+                public_exponent: EQ==
+                private_exponent: >-
+                  BwmGuHhn8GG7CdUmWR/JDUjanqB/S4DnrQhTO1GDynNvN0erT8QIpAt3yQo6op9jDsUZtvVhHUWlAOPpCe9lLd8qshZjXx1TIJXl/XeOfmRZ8a1JmAvUPSp6xDXV5e6cohS40Sh0jRhZ6VAxb8x9RPqHXuIzL0UHVe2UiYGJzBQTM4aG0GwYL+vms2F6UZO8aZjg0KfTLxo4YZwjYD9dg62G+8/kDqW6/yoGJ+CPLOhVfmXApe4v7/8B4QYEdgt7D3tbc26KACD+SDflvqlNcLo4+M6Mymot2Mjhawvi8hH6kRBuj0kFS0XtTdoUSas77v3DfR7F+96JWfVxOeaFfQ==
+                product_code: qYtTjr+yG4k=
+          headers: {}
+      security: []
+  /api/v1/gen_serial_number:
+    post:
+      summary: 生成序列号
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_info:
+                  type: object
+                  properties:
+                    key_size:
+                      type: integer
+                    modulus:
+                      type: string
+                    public_exponent:
+                      type: string
+                    private_exponent:
+                      type: string
+                    product_code:
+                      type: string
+                  required:
+                    - key_size
+                    - modulus
+                    - public_exponent
+                    - private_exponent
+                    - product_code
+                serial_info:
+                  type: object
+                  properties:
+                    user_name:
+                      type: string
+                    email:
+                      type: string
+                    hwid:
+                      type: string
+                    exp_year:
+                      type: integer
+                    exp_month:
+                      type: integer
+                    exp_day:
+                      type: integer
+                  required:
+                    - user_name
+                    - email
+                    - hwid
+                    - exp_year
+                    - exp_month
+                    - exp_day
+                ignore_network_adapters:
+                  type: boolean
+              required:
+                - product_info
+                - serial_info
+                - ignore_network_adapters
+            example:
+              product_info:
+                key_size: 2048
+                modulus: >-
+                  14BzmH0aHAWNNKiUiBcbqaCg9q/XFVQzg7I+Zsa9cYTZbMAfxieWcblUZpRmMNrGXE0sWg5vhBtfv2msK/Ul0Oi3FTurLU2Ejs9QoqVZbb9atPIxe6QeUta4DAyIvBJAzDSz0j+aT5ItLRwD5KgzHtvU70Z51F9zwccBM37CzVxVnLMPKnjSmwkntpnDD9J7NKAzos2XJeHJQ3rWk6t1YY1mM8f//7tFIm2UvBELmG3ebvb4KvhvsbiqJVuZXgDnPxHJHmwCbTnLQxNcyDigt7LJFWrSLepu4bZ7wrDT7CxV9/+Tj4go33Km1qvLtJHM06w9dVsUlGLrZMjg9YoWLQ==
+                public_exponent: EQ==
+                private_exponent: >-
+                  TA8323dyoHpuEpXaEeoJw2XedS8Anh231CDKuty7VT3yYp4pVP7pzcjwnKzYxfLcmQwtxW6BtifHcLviad4NWMqa+G9pl4TFX5R2z/4fkCVrTuwRdu6hSmnmmtc/UW/aomz0LBZysqwP8c2nBWiKg1ylgaBnO+V0JkY8qMNT0AHSmjSEmrjlGvDwZS42oitc3TNStnYBWKQg6FQ9amCLs0GKVRKXS42buAzOJU6HJxFez9xKmLbLb1dL2mlUk+mhNSwVI3r8zZeFXiaVp3yRgWcQkC5JNf0L27MaVcWy840bSuzDq3dU5WcBNlzPtrZH7CGgMra4Xla0QWIHjGZX2Q==
+                product_code: n90sx8V4k7Y=
+              serial_info:
+                user_name: lona
+                email: lona@example.com
+                hwid: eENCrFnwMIMzwzPH3pgmMMInHQUy5rsv7qM52r5jO30=
+                exp_year: 2025
+                exp_month: 7
+                exp_day: 14
+              ignore_network_adapters: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  serial_number:
+                    type: string
+                  expired_year:
+                    type: integer
+                  expired_month:
+                    type: integer
+                  expired_day:
+                    type: integer
+                required:
+                  - serial_number
+                  - expired_year
+                  - expired_month
+                  - expired_day
+              example:
+                serial_number: >-
+                  q2wKdcTbhNxeQqHmLPh2W4nUfAgn44lpi9EM4EJ77gwXYA6JXhG4tlgcHD9PoGj11Wol1zwrW12T
+
+                  5C2QQiy5MublqUsOZpyP8ZUj/7BX0vXcm90mLZ0zxkEjRIVqv/wxzE5c06P++Mifi8q5JFMUIBLR
+
+                  9PovSQ+Ee3Ci9xGtszBoAEIO8/WRMnMI6RDUKk2pCBKWgPMCYy2PL8JWtERZfySYJFpGTjNjB8Ft
+
+                  mB2wFVmuspzyvlIupkQbs45AIMms63KbW7qbydQ5a1HzyfL65yJIFuGwpyinPZeTqWKEOiROf3XE
+
+                  vDkhS4mShtF8vkCNvwcw/sh+0QDuJ6Tz+8zI7A==
+                expired_year: 2025
+                expired_month: 7
+                expired_day: 14
+          headers: {}
+      security: []
+  /api/v1/app/list:
+    get:
+      summary: 列出所有app
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+          headers: {}
+      security: []
+  /api/v1/app/add:
+    post:
+      summary: 添加app
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: name
+          in: query
+          description: ''
+          required: false
+          schema:
+            type: string
+        - name: vmp_file_path
+          in: query
+          description: ''
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+            example: file://D:\tmp\SharpKeys.zip
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /api/v1/app/pack:
+    post:
+      summary: 打包app
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: name
+          in: query
+          description: ''
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /api/v1/app/product_info:
+    get:
+      summary: 获取产品信息
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: name
+          in: query
+          description: ''
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key_size:
+                    type: integer
+                  modulus:
+                    type: string
+                  public_exponent:
+                    type: string
+                  private_exponent:
+                    type: string
+                  product_code:
+                    type: string
+                required:
+                  - key_size
+                  - modulus
+                  - public_exponent
+                  - private_exponent
+                  - product_code
+              example:
+                key_size: 2048
+                modulus: >-
+                  0FdS/JmXUNbtPUuDLfMzyu7QHjIoMcjehcoY5ZRS3++jbvLdZ3nNsD3T7wOpu5BQm6vX6S4fsX4sjoaa2C58RXP0lgafkEEtboh0QHIDfCSrSee13nE8S6jotjNOEY6gmfEakYI243MveUPP82NmlaHd0ceVU503nl8+iyuQomvDWjcM5rg7XTN3N2sPFbkuRPvn2tWSZ5CljRkKt+d/aRxZ8bEq1VQTB1Ukj49amf/Gwh9iTE+/s+HDavMFvrrp3X8BxjAvsB7NM3PfUYhbQpG/7C4G8UFtZUlWrscrq2Yw5X/I6AvIIsAGv3cJ842gqQMcJ+NfbjBTDu8RQvxSlQ==
+                public_exponent: AAEAAQ==
+                private_exponent: >-
+                  by6KzN6yT6PDCzjnEnh9JUj4q4ScyqSli8RkMPBModDi6OyWlwf7apg0J5NO2xeSzOCR4pCIvVHWOWE/9Sopi27sEbwLHxKJSjlrwJCXp4JyHoiXF9RaFw5W0hTjDp+MuVpfkVNqM0tfBFnZ+csMDcJJ/A+EcxCtg8jUObTQBLyDCECglawwftJl3jKd+/8FcpqCKGbu87qgyx8YN/w1B0+NBrWRICqOw8KIl0pGhF+TN4Rq8+tsNhElMd01sxEyGj0/u6P6VgyfVlT4I7eedSvRfyloNJjXjiXlaNBYOena76npxNmyJhCJ7X4Q/QWg6vNRNt2FUKU1kZF3Vg9JaQ==
+                product_code: A1BJ8qsX/vo=
+          headers: {}
+      security: []
+components:
+  schemas: {}
+  securitySchemes: {}
+servers: []
+security: []
