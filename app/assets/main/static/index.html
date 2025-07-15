@@ -88,6 +88,19 @@
 	</div>
 
   <script>
+    function getFileNameFromDisposition(header) {
+      if (!header) return null;
+      const match = header.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+      if (match && match[1]) {
+        try {
+          return decodeURIComponent(match[1].replace(/["']/g, ''));
+        } catch (e) {
+          return match[1];
+        }
+      }
+      return null;
+    }
+
     function vmpxApp() {
       return {
         apps: [],
@@ -158,8 +171,28 @@
         },
 
         async packApp(name) {
-          const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, { method: 'POST' });
-          alert(res.ok ? '打包成功' : '打包失败');
+          const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, {
+            method: 'POST',
+          });
+          // 确保返回成功
+          if (!res.ok) {
+            console.error('Download failed', res.statusText);
+            return;
+          }
+          // 提取文件名（从 Content-Disposition）
+          const disposition = res.headers.get('Content-Disposition');
+          const filename = getFileNameFromDisposition(disposition) || `${name}.zip`;
+          // 获取 Blob 数据
+          const blob = await res.blob();
+          // 创建 URL 并触发下载
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
         },
 
         async uploadApp() {
