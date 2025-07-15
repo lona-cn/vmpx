@@ -1,0 +1,9 @@
+.xmake/
+.idea/
+.vscode/
+vsxmake*/
+build/
+build-*/
+cmake-build/
+compile_commands.json
+.cache/

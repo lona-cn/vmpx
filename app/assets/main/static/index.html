@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" x-data="vmpxApp()" x-init="init()">
+<head>
+  <meta charset="UTF-8" />
+  <title>VMPX 控制台</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <h1 class="mb-4">🎛️ VMPX 控制台</h1>
+
+    <div class="row">
+      <!-- 左：App 列表 -->
+      <div class="col-md-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h4 class="mb-0">📦 App 列表</h4>
+          <button class="btn btn-sm btn-outline-secondary" @click="init()">🔄 刷新</button>
+        </div>
+        <ul class="list-group">
+          <template x-for="name in apps" :key="name">
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span x-text="name"></span>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary" @click="loadProductInfo(name)">加载</button>
+                <button class="btn btn-sm btn-outline-dark" @click="packApp(name)">加壳</button>
+              </div>
+            </li>
+          </template>
+        </ul>
+      </div>
+
+      <!-- 中：ProductInfo -->
+      <div class="col-md-4 mb-4">
+        <h4>🧬 ProductInfo</h4>
+        <textarea class="form-control" rows="12" x-model="productInfoText" spellcheck="false" placeholder="点击 App 列表项加载或手动粘贴..."></textarea>
+        <div class="mt-2 d-flex justify-content-between">
+          <div class="input-group me-2">
+            <span class="input-group-text">Key Size</span>
+            <input type="number" class="form-control" x-model.number="keySize" />
+          </div>
+          <button class="btn btn-primary" @click="generateRandomProductInfo()">随机生成</button>
+        </div>
+      </div>
+
+      <!-- 右：序列号 -->
+      <div class="col-md-4 mb-4">
+        <h4>🔐 生成序列号</h4>
+        <form @submit.prevent="generateSerial()">
+          <input class="form-control mb-2" placeholder="用户名（可选）" x-model="serial.user_name" />
+          <input class="form-control mb-2" placeholder="邮箱（可选）" x-model="serial.email" />
+          <input class="form-control mb-2" placeholder="硬件ID（可选）" x-model="serial.hwid" />
+          <input class="form-control mb-2" type="date" x-model="serial.exp_date" required />
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" x-model="ignoreAdapters" id="ignoreAdapters" />
+            <label class="form-check-label" for="ignoreAdapters">忽略网卡</label>
+          </div>
+          <button class="btn btn-success w-100" type="submit">生成序列号</button>
+        </form>
+        <pre class="mt-3 bg-white p-3 border rounded small text-break" x-text="serialOutput"></pre>
+        <button class="btn btn-outline-secondary btn-sm mt-1" @click="copySerial()" x-show="serialOutput">📋 复制序列号</button>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- App 上传 -->
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <h5>📤 上传新 App</h5>
+        <input type="file" class="form-control mb-2" x-ref="appFile" />
+        <input type="text" class="form-control mb-2" placeholder="App 名称（必填）" x-model="newAppName" />
+        <input type="text" class="form-control mb-2" placeholder="App 文件路径（可选）" x-model="newAppPath" />
+        <button class="btn btn-warning" @click="uploadApp()">上传</button>
+      </div>
+    </div>
+  </div>
+  
+	<!-- 🔔 Toast 提示区域 -->
+	<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+	  <div class="toast align-items-center text-white bg-success border-0" id="toastBox" role="alert" aria-live="polite" aria-atomic="true">
+		<div class="d-flex">
+		  <div class="toast-body" id="toastMessage">已复制序列号</div>
+		  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
+		</div>
+	  </div>
+	</div>
+
+  <script>
+    function vmpxApp() {
+      return {
+        apps: [],
+        keySize: 2048,
+        productInfoText: '',
+        serial: {
+          user_name: '',
+          email: '',
+          hwid: '',
+          exp_date: ''
+        },
+        ignoreAdapters: false,
+        serialOutput: '',
+        newAppName: '',
+        newAppPath: '',
+
+        async init() {
+          const res = await fetch('/api/v1/app/list');
+          this.apps = await res.json();
+        },
+
+        async generateRandomProductInfo() {
+          const res = await fetch('/api/v1/gen_random_product_info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key_size: this.keySize })
+          });
+          const data = await res.json();
+          this.productInfoText = JSON.stringify(data, null, 2);
+        },
+
+        async loadProductInfo(name) {
+          const res = await fetch(`/api/v1/app/product_info?name=${encodeURIComponent(name)}`);
+          const data = await res.json();
+          this.productInfoText = JSON.stringify(data, null, 2);
+        },
+
+        async generateSerial() {
+          let parsed;
+          try {
+            parsed = JSON.parse(this.productInfoText);
+          } catch (e) {
+            alert("ProductInfo JSON 无效！");
+            return;
+          }
+
+          const [year, month, day] = this.serial.exp_date.split('-').map(Number);
+          const payload = {
+            product_info: parsed,
+            serial_info: {
+              user_name: this.serial.user_name || "",
+              email: this.serial.email || "",
+              hwid: this.serial.hwid || "",
+              exp_year: year,
+              exp_month: month,
+              exp_day: day
+            },
+            ignore_network_adapters: this.ignoreAdapters
+          };
+
+          const res = await fetch('/api/v1/gen_serial_number', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          this.serialOutput = JSON.stringify(data, null, 2);
+        },
+
+        async packApp(name) {
+          const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, { method: 'POST' });
+          alert(res.ok ? '打包成功' : '打包失败');
+        },
+
+        async uploadApp() {
+          const file = this.$refs.appFile.files[0];
+          if (!file || !this.newAppName.trim()) {
+            alert('请填写 App 名称并选择文件');
+            return;
+          }
+
+          let url = `/api/v1/app/add?name=${encodeURIComponent(this.newAppName.trim())}`;
+          if (this.newAppPath.trim()) {
+            url += `&vmp_file_path=${encodeURIComponent(this.newAppPath.trim())}`;
+          }
+
+          const res = await fetch(url, {
+            method: 'POST',
+            body: file
+          });
+
+          if (res.ok) {
+            alert("上传成功");
+            this.init();
+            this.newAppName = '';
+            this.newAppPath = '';
+            this.$refs.appFile.value = '';
+          } else {
+            alert("上传失败");
+          }
+        },
+		copySerial() {
+		  try {
+			const parsed = JSON.parse(this.serialOutput);
+			const serial = parsed.serial_number || '';
+			if (!serial) {
+			  this.showToast('⚠️ 未找到 serial_number 字段', 'danger');
+			  return;
+			}
+			navigator.clipboard.writeText(serial).then(() => {
+			  this.showToast('✅ 已复制序列号', 'success');
+			}).catch(() => {
+			  this.showToast('⚠️ 无法访问剪贴板', 'danger');
+			});
+		  } catch (e) {
+			this.showToast('⚠️ 输出格式无效', 'danger');
+		  }
+		},
+		showToast(message, type = 'success') {
+		  const toastEl = document.getElementById('toastBox');
+		  const toastMsg = document.getElementById('toastMessage');
+
+		  toastMsg.textContent = message;
+		  toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+
+		  const toast = new bootstrap.Toast(toastEl);
+		  toast.show();
+		}
+      }
+    }
+  </script>
+</body>
+</html>

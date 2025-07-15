@@ -1,0 +1,12 @@
+.vscode/
+.xmake/
+build/
+doc/
+vsxmake2022/
+dockerfile/
+docker/
+.git/
+.dockerignore
+LICENSE
+README.md
+README*.md

@@ -1,0 +1,21 @@
+#define VERSION "${VERSION}"
+#define VERSION_MINOR "${VERSION_MINOR}"
+#define VERSION_ALTER "${VERSION_ALTER}"
+#define VERSION_BUILD "${VERSION_BUILD}"
+#define PLAT "${PLAT}"
+#define ARCH "${ARCH}"
+#define MODE "${MODE}"
+#define DEBUG "${DEBUG}"
+#define OS "${OS}"
+
+#define GIT_COMMIT "${GIT_COMMIT}"
+#define GIT_COMMIT_LONG "${GIT_COMMIT_LONG}"
+#define GIT_COMMIT_DATE "${GIT_COMMIT_DATE}"
+#define GIT_BRANCH "${GIT_BRANCH}"
+#define GIT_TAG "${GIT_TAG}"
+#define GIT_TAG_LONG "${GIT_TAG_LONG}"
+#define GIT_CUSTOM "${GIT_TAG}-${GIT_COMMIT}"
+
+#define PROJECT_NAME "${PROJECT_NAME}"
+
+//u can add your own defines here
