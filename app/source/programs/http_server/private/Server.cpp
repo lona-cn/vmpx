@@ -225,7 +225,7 @@ namespace
             std::string content_disposition = std::format("attachment; filename=\"{}\"; filename*=UTF8''{}",
                                                           packed_app_filename_str, packed_app_filename_str);
             ctx->setHeader("Content-Disposition", content_disposition);
-            ctx->sendFile(packed_app_path_str.c_str());
+            return ctx->sendFile(packed_app_path_str.c_str());
         }
         return CtxSendJson(ctx, ErrorEntity{"unknown error"},
                            HTTP_STATUS_INTERNAL_SERVER_ERROR);
