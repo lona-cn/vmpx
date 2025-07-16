@@ -88,17 +88,39 @@
 	</div>
 
   <script>
-    function getFileNameFromDisposition(header) {
+    function getFileNameFromDispositionOld(header) {
       if (!header) return null;
-      const match = header.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+      const match = decodeURIComponent(header).match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
       if (match && match[1]) {
         try {
-          return decodeURIComponent(match[1].replace(/["']/g, ''));
+          //return decodeURIComponent(match[1].replace(/["']/g, ''));
+          return match1[1]
         } catch (e) {
           return match[1];
         }
       }
       return null;
+    }
+    function getFileNameFromDisposition(header) {
+      if (!header) return null;
+
+      const str = decodeURIComponent(header);
+      const prefix = "filename*=UTF-8''";
+      const start = str.indexOf(prefix);
+      if (start === -1) return null;
+
+      // 从 prefix 后面开始截取
+      let rest = str.substring(start + prefix.length);
+
+      // 截取到分号或结尾
+      const end = rest.indexOf(';');
+      if (end !== -1) {
+        rest = rest.substring(0, end);
+      }
+
+      // 去除可能的引号和空白
+      //return rest.trim().replace(/^["']|["']$/g, '');
+      return rest;
     }
 
     function vmpxApp() {

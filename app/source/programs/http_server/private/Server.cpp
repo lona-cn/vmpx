@@ -2,6 +2,7 @@
 
 #include <expected>
 #include <span>
+#include <string>
 
 #include <hv/HttpServer.h>
 #include <hv/HttpService.h>
@@ -34,6 +35,27 @@ namespace
     std::unique_ptr<vmpx::app_pack::AppPackService> pack_service{nullptr};
     std::unique_ptr<hv::HttpServer> server = nullptr;
     thread_local std::string log_buf_string;
+
+    std::string URLEncode(const std::string& value)
+    {
+        std::ostringstream escaped;
+        escaped.fill('0');
+        escaped << std::hex << std::uppercase;
+
+        for (unsigned char c : value)
+        {
+            if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+            {
+                escaped << c;
+            }
+            else
+            {
+                escaped << '%' << std::setw(2) << int(c);
+            }
+        }
+
+        return escaped.str();
+    }
 
     template <typename T>
     auto CtxSendJson(const HttpContextPtr& ctx, T&& value, http_status status = HTTP_STATUS_OK) noexcept
@@ -220,11 +242,16 @@ namespace
         {
             auto packed_app_path_str = packed_app_path.string();
             auto packed_app_filename_str = packed_app_path.filename().string();
+            //TODO 字符集这块
+            // auto utf_packed_app_filename_str = boost::locale::conv::to_utf<char>(
+            // packed_app_filename_str, vmpx::Charset::DetCharset(packed_app_filename_str).value_or("ASCII"));
             auto utf_packed_app_filename_str = boost::locale::conv::to_utf<char>(
-                packed_app_filename_str, vmpx::Charset::DetCharset(packed_app_filename_str).value_or("ASCII"));
-            std::string content_disposition = std::format("attachment; filename=\"{}\"; filename*=UTF8''{}",
-                                                          packed_app_filename_str, packed_app_filename_str);
+                packed_app_filename_str, "GBK");
+            std::string encoded_utf_packed_app_filename_str = URLEncode(utf_packed_app_filename_str);
+            std::string content_disposition = std::format("attachment; filename=\"{}\"; filename*=UTF-8''{}",
+                                                          packed_app_filename_str, encoded_utf_packed_app_filename_str);
             ctx->setHeader("Content-Disposition", content_disposition);
+            ctx->setHeader("Content-Type", "application/zip");
             return ctx->sendFile(packed_app_path_str.c_str());
         }
         return CtxSendJson(ctx, ErrorEntity{"unknown error"},
