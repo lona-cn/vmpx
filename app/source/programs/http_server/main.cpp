@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <log4cplus/log4cplus.h>
 #include <argparse/argparse.hpp>
+#include <boost/locale.hpp>
 #include "config.h"
 #include "Server.h"
 #include "VMPX.h"
@@ -54,6 +55,14 @@ namespace
                        LOG4CPLUS_STRING_TO_TSTRING(std::format("VERSION:{} GIT_COMMIT:{}",VERSION,GIT_COMMIT)));
     }
 
+    void InitLocale()
+    {
+        boost::locale::generator gen;
+        std::locale loc = gen("zh_CN.GBK");
+        std::locale::global(loc);
+        std::cout.imbue(loc);
+    }
+
     struct Arguments
     {
         std::string ip;
@@ -88,6 +97,7 @@ int main(int argc, char* argv[])
 #endif
     InitLogger();
     RegisterExitHandler();
+    InitLocale();
     try
     {
         auto arguments = ParseArguments(argc, argv);
