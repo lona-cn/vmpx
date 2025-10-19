@@ -1,91 +1,436 @@
 <!DOCTYPE html>
-<html lang="en" x-data="vmpxApp()" x-init="init()">
+<html lang="zh-CN" x-data="vmpxApp()" x-init="init()">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VMPX 控制台</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #4f46e5;
+      --secondary-color: #10b981;
+      --accent-color: #f59e0b;
+      --danger-color: #ef4444;
+      --dark-color: #1f2937;
+      --light-color: #f3f4f6;
+    }
+    
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #f9fafb;
+      color: #374151;
+    }
+    
+    .card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .btn {
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    
+    .btn-primary:hover {
+      background-color: #4338ca;
+      border-color: #4338ca;
+      transform: translateY(-1px);
+    }
+    
+    .btn-success {
+      background-color: var(--secondary-color);
+      border-color: var(--secondary-color);
+    }
+    
+    .btn-success:hover {
+      background-color: #059669;
+      border-color: #059669;
+      transform: translateY(-1px);
+    }
+    
+    .btn-warning {
+      background-color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+    
+    .btn-warning:hover {
+      background-color: #d97706;
+      border-color: #d97706;
+      transform: translateY(-1px);
+    }
+    
+    .btn-outline-secondary:hover {
+      background-color: var(--light-color);
+      transform: translateY(-1px);
+    }
+    
+    .btn-outline-primary {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+    
+    .btn-outline-primary:hover {
+      background-color: var(--primary-color);
+      color: white;
+      transform: translateY(-1px);
+    }
+    
+    .btn-outline-dark {
+      border-color: var(--dark-color);
+      color: var(--dark-color);
+    }
+    
+    .btn-outline-dark:hover {
+      background-color: var(--dark-color);
+      color: white;
+      transform: translateY(-1px);
+    }
+    
+    .input-group-text {
+      background-color: var(--light-color);
+      border-color: #e5e7eb;
+    }
+    
+    .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+    }
+    
+    textarea {
+      font-family: 'Monaco', 'Consolas', monospace;
+    }
+    
+    pre {
+      font-family: 'Monaco', 'Consolas', monospace;
+      background-color: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.875rem;
+    }
+    
+    .list-group-item {
+      transition: background-color 0.2s ease;
+    }
+    
+    .list-group-item:hover {
+      background-color: #f9fafb;
+    }
+    
+    .toast {
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    .header-gradient {
+      background: linear-gradient(135deg, var(--primary-color), #7c3aed);
+    }
+    
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #c5c5c5;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container py-4">
-    <h1 class="mb-4">🎛️ VMPX 控制台</h1>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="header-gradient text-white py-4 shadow-lg">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-between items-center">
+        <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold flex items-center">
+          <span class="text-2xl mr-2">🎛️</span>
+          VMPX 控制台
+        </h1>
+        <button 
+          class="bg-white bg-opacity-20 hover:bg-opacity-30 transition-all px-4 py-2 rounded-lg flex items-center"
+          @click="init()"
+        >
+          <span class="mr-2">🔄</span>
+          刷新应用列表
+        </button>
+      </div>
+    </div>
+  </header>
 
-    <div class="row">
+  <!-- 主要内容 -->
+  <main class="container mx-auto px-4 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- 左：App 列表 -->
-      <div class="col-md-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h4 class="mb-0">📦 App 列表</h4>
-          <button class="btn btn-sm btn-outline-secondary" @click="init()">🔄 刷新</button>
+      <div class="card bg-white rounded-xl shadow-md p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+            <span class="text-lg mr-2">📦</span>
+            App 列表
+          </h2>
+          <button 
+            class="btn btn-sm btn-outline-secondary rounded-full px-4"
+            @click="init()"
+          >
+            <span class="mr-1">🔄</span>
+            刷新
+          </button>
         </div>
-        <ul class="list-group">
-          <template x-for="name in apps" :key="name">
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <span x-text="name"></span>
-              <div class="btn-group">
-                <button class="btn btn-sm btn-outline-primary" @click="loadProductInfo(name)">加载</button>
-                <button class="btn btn-sm btn-outline-dark" @click="packApp(name)">加壳</button>
-              </div>
-            </li>
-          </template>
-        </ul>
+        <div class="overflow-y-auto max-h-[400px] pr-1">
+          <ul class="rounded-lg overflow-hidden border">
+            <template x-for="name in apps" :key="name">
+              <li class="border-b last:border-b-0">
+                <div class="p-3 flex justify-between items-center bg-white">
+                  <span class="font-medium text-gray-700" x-text="name"></span>
+                  <div class="btn-group">
+                    <button 
+                      class="btn btn-sm btn-outline-primary rounded-l-md px-3"
+                      @click="loadProductInfo(name)"
+                      x-tooltip="加载产品信息"
+                    >
+                      加载
+                    </button>
+                    <button 
+                      class="btn btn-sm btn-outline-dark rounded-r-md px-3"
+                      @click="packApp(name)"
+                      x-tooltip="加壳应用"
+                    >
+                      加壳
+                    </button>
+                  </div>
+                </div>
+              </li>
+            </template>
+          </ul>
+          <div class="mt-2 text-center text-gray-500 text-sm" x-show="apps.length === 0">
+            暂无应用，请上传新应用
+          </div>
+        </div>
       </div>
 
       <!-- 中：ProductInfo -->
-      <div class="col-md-4 mb-4">
-        <h4>🧬 ProductInfo</h4>
-        <textarea class="form-control" rows="12" x-model="productInfoText" spellcheck="false" placeholder="点击 App 列表项加载或手动粘贴..."></textarea>
-        <div class="mt-2 d-flex justify-content-between">
-          <div class="input-group me-2">
-            <span class="input-group-text">Key Size</span>
-            <input type="number" class="form-control" x-model.number="keySize" />
+      <div class="card bg-white rounded-xl shadow-md p-5">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+          <span class="text-lg mr-2">🧬</span>
+          ProductInfo
+        </h2>
+        <textarea 
+          class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 mb-3"
+          rows="12" 
+          x-model="productInfoText" 
+          spellcheck="false" 
+          placeholder="点击 App 列表项加载或手动粘贴..."
+        ></textarea>
+        <div class="flex flex-col sm:flex-row justify-between gap-3">
+          <div class="input-group flex-1 max-w-xs">
+            <span class="input-group-text bg-gray-100">Key Size</span>
+            <input 
+              type="number" 
+              class="form-control" 
+              x-model.number="keySize" 
+              min="1024" 
+              step="1024"
+            />
           </div>
-          <button class="btn btn-primary" @click="generateRandomProductInfo()">随机生成</button>
+          <button 
+            class="btn btn-primary rounded-lg px-6 py-2 font-medium flex items-center justify-center"
+            @click="generateRandomProductInfo()"
+          >
+            <span class="mr-2">🎲</span>
+            随机生成
+          </button>
         </div>
       </div>
 
       <!-- 右：序列号 -->
-      <div class="col-md-4 mb-4">
-        <h4>🔐 生成序列号</h4>
-        <form @submit.prevent="generateSerial()">
-          <input class="form-control mb-2" placeholder="用户名（可选）" x-model="serial.user_name" />
-          <input class="form-control mb-2" placeholder="邮箱（可选）" x-model="serial.email" />
-          <input class="form-control mb-2" placeholder="硬件ID（可选）" x-model="serial.hwid" />
-          <input class="form-control mb-2" type="date" x-model="serial.exp_date" required />
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" x-model="ignoreAdapters" id="ignoreAdapters" />
-            <label class="form-check-label" for="ignoreAdapters">忽略网卡</label>
+      <div class="card bg-white rounded-xl shadow-md p-5">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+          <span class="text-lg mr-2">🔐</span>
+          生成序列号
+        </h2>
+        <form @submit.prevent="generateSerial()" class="space-y-3">
+          <input 
+            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            placeholder="用户名（可选）" 
+            x-model="serial.user_name" 
+          />
+          <input 
+            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            placeholder="邮箱（可选）" 
+            x-model="serial.email" 
+            type="email"
+          />
+          <input 
+            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            placeholder="硬件ID（可选）" 
+            x-model="serial.hwid" 
+          />
+          <input 
+            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            type="date" 
+            x-model="serial.exp_date" 
+            required 
+          />
+          <div class="form-check">
+            <input 
+              class="form-check-input rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              type="checkbox" 
+              x-model="ignoreAdapters" 
+              id="ignoreAdapters" 
+            />
+            <label class="form-check-label text-gray-700" for="ignoreAdapters">
+              忽略网卡
+            </label>
           </div>
-          <button class="btn btn-success w-100" type="submit">生成序列号</button>
+          <button 
+            class="btn btn-success w-100 py-2 font-medium rounded-lg"
+            type="submit"
+          >
+            <span class="mr-2">✨</span>
+            生成序列号
+          </button>
         </form>
-        <pre class="mt-3 bg-white p-3 border rounded small text-break" x-text="serialOutput"></pre>
-        <button class="btn btn-outline-secondary btn-sm mt-1" @click="copySerial()" x-show="serialOutput">📋 复制序列号</button>
+        <div class="mt-4">
+          <pre 
+            class="p-3 border rounded-lg bg-gray-50 text-sm text-gray-700 max-h-[200px] overflow-auto"
+            x-text="serialOutput"
+            x-show="serialOutput"
+          ></pre>
+          <button 
+            class="btn btn-outline-secondary rounded-lg px-4 py-1 mt-2 transition-all"
+            @click="copySerial()" 
+            x-show="serialOutput"
+          >
+            <span class="mr-1">📋</span>
+            复制序列号
+          </button>
+        </div>
       </div>
     </div>
 
-    <hr />
-
     <!-- App 上传 -->
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <h5>📤 上传新 App</h5>
-        <input type="file" class="form-control mb-2" x-ref="appFile" />
-        <input type="text" class="form-control mb-2" placeholder="App 名称（必填）" x-model="newAppName" />
-        <input type="text" class="form-control mb-2" placeholder="App 文件路径（可选）" x-model="newAppPath" />
-        <button class="btn btn-warning" @click="uploadApp()">上传</button>
+    <div class="mt-8 card bg-white rounded-xl shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-5 flex items-center">
+        <span class="text-lg mr-2">📤</span>
+        上传新 App
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div class="mb-3">
+          <label for="appFile" class="block text-sm font-medium text-gray-700 mb-1">
+            选择文件
+          </label>
+          <div class="relative">
+            <input 
+              type="file" 
+              id="appFile"
+              class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              x-ref="appFile" 
+            />
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="newAppName" class="block text-sm font-medium text-gray-700 mb-1">
+            App 名称 <span class="text-red-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="newAppName"
+            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            placeholder="App 名称（必填）" 
+            x-model="newAppName" 
+          />
+        </div>
+        <div class="mb-3">
+          <label for="newAppPath" class="block text-sm font-medium text-gray-700 mb-1">
+            App 文件路径（可选）
+          </label>
+          <input 
+            type="text" 
+            id="newAppPath"
+            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            placeholder="App 文件路径（可选）" 
+            x-model="newAppPath" 
+          />
+        </div>
+      </div>
+      <button 
+        class="btn btn-warning mt-4 px-6 py-2 font-medium rounded-lg flex items-center"
+        @click="uploadApp()"
+      >
+        <span class="mr-2">🚀</span>
+        上传应用
+      </button>
+    </div>
+  </main>
+  
+  <!-- 页脚 -->
+  <footer class="bg-gray-100 border-t border-gray-200 mt-12 py-6">
+    <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
+      <p>VMPX 控制台 &copy; 2023</p>
+    </div>
+  </footer>
+
+  <!-- Toast 提示区域 -->
+  <div 
+    class="fixed bottom-4 right-4 z-50 transition-all duration-300 transform translate-x-full opacity-0" 
+    id="toastBox"
+    x-ref="toastBox"
+  >
+    <div class="bg-success text-white rounded-lg shadow-lg p-4 max-w-xs">
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium" id="toastMessage">操作成功</p>
+        </div>
+        <button 
+          type="button" 
+          class="ml-auto flex-shrink-0 inline-flex items-center justify-center rounded-md text-white hover:text-gray-200 focus:outline-none"
+          onclick="document.getElementById('toastBox').classList.add('translate-x-full', 'opacity-0')"
+        >
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
     </div>
   </div>
-  
-	<!-- 🔔 Toast 提示区域 -->
-	<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
-	  <div class="toast align-items-center text-white bg-success border-0" id="toastBox" role="alert" aria-live="polite" aria-atomic="true">
-		<div class="d-flex">
-		  <div class="toast-body" id="toastMessage">已复制序列号</div>
-		  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
-		</div>
-	  </div>
-	</div>
 
   <script>
     function getFileNameFromDispositionOld(header) {
@@ -140,24 +485,45 @@
         newAppPath: '',
 
         async init() {
-          const res = await fetch('/api/v1/app/list');
-          this.apps = await res.json();
+          try {
+            const res = await fetch('/api/v1/app/list');
+            if (!res.ok) throw new Error('网络请求失败');
+            this.apps = await res.json();
+            this.showToast('应用列表已更新', 'success');
+          } catch (error) {
+            console.error('初始化失败:', error);
+            this.showToast('加载应用列表失败', 'danger');
+          }
         },
 
         async generateRandomProductInfo() {
-          const res = await fetch('/api/v1/gen_random_product_info', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key_size: this.keySize })
-          });
-          const data = await res.json();
-          this.productInfoText = JSON.stringify(data, null, 2);
+          try {
+            const res = await fetch('/api/v1/gen_random_product_info', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key_size: this.keySize })
+            });
+            if (!res.ok) throw new Error('网络请求失败');
+            const data = await res.json();
+            this.productInfoText = JSON.stringify(data, null, 2);
+            this.showToast('已生成随机 ProductInfo', 'success');
+          } catch (error) {
+            console.error('生成失败:', error);
+            this.showToast('生成 ProductInfo 失败', 'danger');
+          }
         },
 
         async loadProductInfo(name) {
-          const res = await fetch(`/api/v1/app/product_info?name=${encodeURIComponent(name)}`);
-          const data = await res.json();
-          this.productInfoText = JSON.stringify(data, null, 2);
+          try {
+            const res = await fetch(`/api/v1/app/product_info?name=${encodeURIComponent(name)}`);
+            if (!res.ok) throw new Error('网络请求失败');
+            const data = await res.json();
+            this.productInfoText = JSON.stringify(data, null, 2);
+            this.showToast(`已加载 ${name} 的 ProductInfo`, 'success');
+          } catch (error) {
+            console.error('加载失败:', error);
+            this.showToast('加载 ProductInfo 失败', 'danger');
+          }
         },
 
         async generateSerial() {
@@ -165,7 +531,12 @@
           try {
             parsed = JSON.parse(this.productInfoText);
           } catch (e) {
-            alert("ProductInfo JSON 无效！");
+            this.showToast('ProductInfo JSON 无效！', 'danger');
+            return;
+          }
+
+          if (!this.serial.exp_date) {
+            this.showToast('请选择过期日期', 'warning');
             return;
           }
 
@@ -183,44 +554,54 @@
             ignore_network_adapters: this.ignoreAdapters
           };
 
-          const res = await fetch('/api/v1/gen_serial_number', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json();
-          this.serialOutput = JSON.stringify(data, null, 2);
+          try {
+            const res = await fetch('/api/v1/gen_serial_number', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('网络请求失败');
+            const data = await res.json();
+            this.serialOutput = JSON.stringify(data, null, 2);
+            this.showToast('序列号生成成功', 'success');
+          } catch (error) {
+            console.error('生成序列号失败:', error);
+            this.showToast('生成序列号失败', 'danger');
+          }
         },
 
         async packApp(name) {
-          const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, {
-            method: 'POST',
-          });
-          // 确保返回成功
-          if (!res.ok) {
-            console.error('Download failed', res.statusText);
-            return;
+          try {
+            const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, {
+              method: 'POST',
+            });
+            // 确保返回成功
+            if (!res.ok) throw new Error('下载失败');
+            // 提取文件名（从 Content-Disposition）
+            const disposition = res.headers.get('Content-Disposition');
+            const filename = getFileNameFromDisposition(disposition) || `${name}.zip`;
+            // 获取 Blob 数据
+            const blob = await res.blob();
+            // 创建 URL 并触发下载
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            this.showToast(`应用 ${name} 加壳成功，开始下载`, 'success');
+          } catch (error) {
+            console.error('加壳失败:', error);
+            this.showToast('应用加壳失败', 'danger');
           }
-          // 提取文件名（从 Content-Disposition）
-          const disposition = res.headers.get('Content-Disposition');
-          const filename = getFileNameFromDisposition(disposition) || `${name}.zip`;
-          // 获取 Blob 数据
-          const blob = await res.blob();
-          // 创建 URL 并触发下载
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
         },
 
         async uploadApp() {
           const file = this.$refs.appFile.files[0];
           if (!file || !this.newAppName.trim()) {
-            alert('请填写 App 名称并选择文件');
+            this.showToast('请填写 App 名称并选择文件', 'warning');
             return;
           }
 
@@ -229,48 +610,324 @@
             url += `&vmp_file_path=${encodeURIComponent(this.newAppPath.trim())}`;
           }
 
-          const res = await fetch(url, {
-            method: 'POST',
-            body: file
-          });
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              body: file
+            });
 
-          if (res.ok) {
-            alert("上传成功");
-            this.init();
-            this.newAppName = '';
-            this.newAppPath = '';
-            this.$refs.appFile.value = '';
-          } else {
-            alert("上传失败");
+            if (res.ok) {
+              this.showToast(`应用 ${this.newAppName} 上传成功`, 'success');
+              this.init();
+              this.newAppName = '';
+              this.newAppPath = '';
+              this.$refs.appFile.value = '';
+            } else {
+              throw new Error('上传失败');
+            }
+          } catch (error) {
+            console.error('上传失败:', error);
+            this.showToast('应用上传失败', 'danger');
           }
         },
-		copySerial() {
-		  try {
-			const parsed = JSON.parse(this.serialOutput);
-			const serial = parsed.serial_number || '';
-			if (!serial) {
-			  this.showToast('⚠️ 未找到 serial_number 字段', 'danger');
-			  return;
-			}
-			navigator.clipboard.writeText(serial).then(() => {
-			  this.showToast('✅ 已复制序列号', 'success');
-			}).catch(() => {
-			  this.showToast('⚠️ 无法访问剪贴板', 'danger');
-			});
-		  } catch (e) {
-			this.showToast('⚠️ 输出格式无效', 'danger');
-		  }
-		},
-		showToast(message, type = 'success') {
-		  const toastEl = document.getElementById('toastBox');
-		  const toastMsg = document.getElementById('toastMessage');
+        copySerial() {
+          try {
+            const parsed = JSON.parse(this.serialOutput);
+            const serial = parsed.serial_number || '';
+            if (!serial) {
+              this.showToast('⚠️ 未找到 serial_number 字段', 'warning');
+              return;
+            }
+            navigator.clipboard.writeText(serial).then(() => {
+              this.showToast('✅ 已复制序列号', 'success');
+            }).catch(() => {
+              this.showToast('⚠️ 无法访问剪贴板', 'danger');
+            });
+          } catch (e) {
+            this.showToast('⚠️ 输出格式无效', 'warning');
+          }
+        },
+        showToast(message, type = 'success') {
+          const toastEl = document.getElementById('toastBox');
+          const toastMsg = document.getElementById('toastMessage');
+          const icon = toastEl.querySelector('svg');
+          const container = toastEl.querySelector('div');
+          
+          // 设置消息内容
+          toastMsg.textContent = message;
+          
+          // 设置类型样式
+          container.className = '';
+          if (type === 'success') {
+            container.className = 'bg-success text-white rounded-lg shadow-lg p-4 max-w-xs';
+            icon.innerHTML = '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />';
+          } else if (type === 'danger') {
+            container.className = 'bg-danger text-white rounded-lg shadow-lg p-4 max-w-xs';
+            icon.innerHTML = '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />';
+          } else if (type === 'warning') {
+            container.className = 'bg-warning text-white rounded-lg shadow-lg p-4 max-w-xs';
+            icon.innerHTML = '<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />';
+          }
+          
+          // 显示toast
+          toastEl.classList.remove('translate-x-full', 'opacity-0');
+          
+          // 3秒后自动隐藏
+          setTimeout(() => {
+            toastEl.classList.add('translate-x-full', 'opacity-0');
+          }, 3000);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
 
-		  toastMsg.textContent = message;
-		  toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+  <script>
+    function getFileNameFromDispositionOld(header) {
+      if (!header) return null;
+      const match = decodeURIComponent(header).match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+      if (match && match[1]) {
+        try {
+          //return decodeURIComponent(match[1].replace(/["']/g, ''));
+          return match1[1]
+        } catch (e) {
+          return match[1];
+        }
+      }
+      return null;
+    }
+    function getFileNameFromDisposition(header) {
+      if (!header) return null;
 
-		  const toast = new bootstrap.Toast(toastEl);
-		  toast.show();
-		}
+      const str = decodeURIComponent(header);
+      const prefix = "filename*=UTF-8''";
+      const start = str.indexOf(prefix);
+      if (start === -1) return null;
+
+      // 从 prefix 后面开始截取
+      let rest = str.substring(start + prefix.length);
+
+      // 截取到分号或结尾
+      const end = rest.indexOf(';');
+      if (end !== -1) {
+        rest = rest.substring(0, end);
+      }
+
+      // 去除可能的引号和空白
+      //return rest.trim().replace(/^["']|["']$/g, '');
+      return rest;
+    }
+
+    function vmpxApp() {
+      return {
+        apps: [],
+        keySize: 2048,
+        productInfoText: '',
+        serial: {
+          user_name: '',
+          email: '',
+          hwid: '',
+          exp_date: ''
+        },
+        ignoreAdapters: false,
+        serialOutput: '',
+        newAppName: '',
+        newAppPath: '',
+
+        async init() {
+          try {
+            const res = await fetch('/api/v1/app/list');
+            if (!res.ok) throw new Error('网络请求失败');
+            this.apps = await res.json();
+            this.showToast('应用列表已更新', 'success');
+          } catch (error) {
+            console.error('初始化失败:', error);
+            this.showToast('加载应用列表失败', 'danger');
+          }
+        },
+
+        async generateRandomProductInfo() {
+          try {
+            const res = await fetch('/api/v1/gen_random_product_info', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key_size: this.keySize })
+            });
+            if (!res.ok) throw new Error('网络请求失败');
+            const data = await res.json();
+            this.productInfoText = JSON.stringify(data, null, 2);
+            this.showToast('已生成随机 ProductInfo', 'success');
+          } catch (error) {
+            console.error('生成失败:', error);
+            this.showToast('生成 ProductInfo 失败', 'danger');
+          }
+        },
+
+        async loadProductInfo(name) {
+          try {
+            const res = await fetch(`/api/v1/app/product_info?name=${encodeURIComponent(name)}`);
+            if (!res.ok) throw new Error('网络请求失败');
+            const data = await res.json();
+            this.productInfoText = JSON.stringify(data, null, 2);
+            this.showToast(`已加载 ${name} 的 ProductInfo`, 'success');
+          } catch (error) {
+            console.error('加载失败:', error);
+            this.showToast('加载 ProductInfo 失败', 'danger');
+          }
+        },
+
+        async generateSerial() {
+          let parsed;
+          try {
+            parsed = JSON.parse(this.productInfoText);
+          } catch (e) {
+            this.showToast('ProductInfo JSON 无效！', 'danger');
+            return;
+          }
+
+          if (!this.serial.exp_date) {
+            this.showToast('请选择过期日期', 'warning');
+            return;
+          }
+
+          const [year, month, day] = this.serial.exp_date.split('-').map(Number);
+          const payload = {
+            product_info: parsed,
+            serial_info: {
+              user_name: this.serial.user_name || "",
+              email: this.serial.email || "",
+              hwid: this.serial.hwid || "",
+              exp_year: year,
+              exp_month: month,
+              exp_day: day
+            },
+            ignore_network_adapters: this.ignoreAdapters
+          };
+
+          try {
+            const res = await fetch('/api/v1/gen_serial_number', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('网络请求失败');
+            const data = await res.json();
+            this.serialOutput = JSON.stringify(data, null, 2);
+            this.showToast('序列号生成成功', 'success');
+          } catch (error) {
+            console.error('生成序列号失败:', error);
+            this.showToast('生成序列号失败', 'danger');
+          }
+        },
+
+        async packApp(name) {
+          try {
+            const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, {
+              method: 'POST',
+            });
+            // 确保返回成功
+            if (!res.ok) throw new Error('下载失败');
+            // 提取文件名（从 Content-Disposition）
+            const disposition = res.headers.get('Content-Disposition');
+            const filename = getFileNameFromDisposition(disposition) || `${name}.zip`;
+            // 获取 Blob 数据
+            const blob = await res.blob();
+            // 创建 URL 并触发下载
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            this.showToast(`应用 ${name} 加壳成功，开始下载`, 'success');
+          } catch (error) {
+            console.error('加壳失败:', error);
+            this.showToast('应用加壳失败', 'danger');
+          }
+        },
+
+        async uploadApp() {
+          const file = this.$refs.appFile.files[0];
+          if (!file || !this.newAppName.trim()) {
+            this.showToast('请填写 App 名称并选择文件', 'warning');
+            return;
+          }
+
+          let url = `/api/v1/app/add?name=${encodeURIComponent(this.newAppName.trim())}`;
+          if (this.newAppPath.trim()) {
+            url += `&vmp_file_path=${encodeURIComponent(this.newAppPath.trim())}`;
+          }
+
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              body: file
+            });
+
+            if (res.ok) {
+              this.showToast(`应用 ${this.newAppName} 上传成功`, 'success');
+              this.init();
+              this.newAppName = '';
+              this.newAppPath = '';
+              this.$refs.appFile.value = '';
+            } else {
+              throw new Error('上传失败');
+            }
+          } catch (error) {
+            console.error('上传失败:', error);
+            this.showToast('应用上传失败', 'danger');
+          }
+        },
+        copySerial() {
+          try {
+            const parsed = JSON.parse(this.serialOutput);
+            const serial = parsed.serial_number || '';
+            if (!serial) {
+              this.showToast('⚠️ 未找到 serial_number 字段', 'warning');
+              return;
+            }
+            navigator.clipboard.writeText(serial).then(() => {
+              this.showToast('✅ 已复制序列号', 'success');
+            }).catch(() => {
+              this.showToast('⚠️ 无法访问剪贴板', 'danger');
+            });
+          } catch (e) {
+            this.showToast('⚠️ 输出格式无效', 'warning');
+          }
+        },
+        showToast(message, type = 'success') {
+          const toastEl = document.getElementById('toastBox');
+          const toastMsg = document.getElementById('toastMessage');
+          const icon = toastEl.querySelector('svg');
+          const container = toastEl.querySelector('div');
+          
+          // 设置消息内容
+          toastMsg.textContent = message;
+          
+          // 设置类型样式
+          container.className = '';
+          if (type === 'success') {
+            container.className = 'bg-success text-white rounded-lg shadow-lg p-4 max-w-xs';
+            icon.innerHTML = '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />';
+          } else if (type === 'danger') {
+            container.className = 'bg-danger text-white rounded-lg shadow-lg p-4 max-w-xs';
+            icon.innerHTML = '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />';
+          } else if (type === 'warning') {
+            container.className = 'bg-warning text-white rounded-lg shadow-lg p-4 max-w-xs';
+            icon.innerHTML = '<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />';
+          }
+          
+          // 显示toast
+          toastEl.classList.remove('translate-x-full', 'opacity-0');
+          
+          // 3秒后自动隐藏
+          setTimeout(() => {
+            toastEl.classList.add('translate-x-full', 'opacity-0');
+          }, 3000);
+        }
       }
     }
   </script>
