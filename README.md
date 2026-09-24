@@ -49,6 +49,12 @@
 2. 启动服务，在浏览器打开其地址（下方示例为 `http://localhost:11451/`）。服务会提供控制台静态页面及 `/api/v1/` 接口。
 3. 在「上传部署」登记应用，然后从「应用目录」加载信息或加壳下载；生成序列号前需准备 ProductInfo JSON 和到期日期。
 
+### 自动构建与发布
+
+提交到默认分支 `master` 后，GitHub Actions 会构建 Windows x64 版本；构建成功才会创建标签为 `snapshot-<完整提交 SHA>` 的预发布版本。面向 `master` 的 Pull Request 只执行构建，不发布 Release。每次构建的压缩包也可以从对应的 Actions 运行记录下载。
+
+在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；服务程序、依赖文件、配置和 Web 页面需保持原有目录结构。请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
+
 ## <div align="center">🧩 API 简要</div>
 
 | 接口                         | 方法 | 说明                 |

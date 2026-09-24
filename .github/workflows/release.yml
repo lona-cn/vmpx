@@ -1,0 +1,90 @@
+name: Build and release
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: '3.0.1'
+          package-cache: true
+          package-cache-key: windows-x64-msvc
+
+      - name: Build release server
+        shell: cmd
+        run: |
+          xmake f -c -p windows -a x64 -m release --runtimes=MT -o build --policies=package.precompiled:n,package.install_only -y
+          if errorlevel 1 exit /b %errorlevel%
+          xmake build -vDy vmpx_server
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Package runnable server
+        shell: pwsh
+        run: |
+          $matches = @(Get-ChildItem -Path build -Filter vmpx_server.exe -Recurse -File)
+          if ($matches.Count -ne 1) { throw "Expected one vmpx_server.exe, found $($matches.Count)" }
+          $root = $matches[0].Directory.FullName
+          foreach ($required in @('assets/static/index.html', 'config/log4cplus.properties')) {
+            if (-not (Test-Path (Join-Path $root $required))) { throw "Missing runtime file: $required" }
+          }
+          Copy-Item LICENSE (Join-Path $root 'LICENSE')
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $archive = "dist/vmpx-windows-x64-$($env:GITHUB_SHA.Substring(0, 12)).zip"
+          Compress-Archive -Path (Join-Path $root '*') -DestinationPath $archive
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: vmpx-windows-x64
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish commit release
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified build
+        uses: actions/download-artifact@v8
+        with:
+          name: vmpx-windows-x64
+          path: dist
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="snapshot-${GITHUB_SHA}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; nothing to publish."
+            exit 0
+          fi
+          gh release create "$tag" dist/*.zip \
+            --target "$GITHUB_SHA" \
+            --title "VMPX ${GITHUB_SHA:0:12}" \
+            --notes "Automated Windows x64 build for commit $GITHUB_SHA. VMProtect_Con.exe is not included; a licensed copy is required for packing." \
+            --prerelease --latest=false
