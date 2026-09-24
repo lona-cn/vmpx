@@ -8,3 +8,5 @@ cmake-build/
 compile_commands.json
 .cache/
 /data/
+
+/app/binaries/VMProtectCon.exe
