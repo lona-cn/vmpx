@@ -59,19 +59,28 @@ CI 使用 GitHub Secret `VMPROTECT_CON_PASSPHRASE` 解密 `app/binaries/VMProtec
 
 ### Linux x86_64：Docker + Wine + noVNC
 
-Linux 容器运行已发布的 Windows x64 程序，不是原生 Linux 构建。VMProtect 不包含在仓库或发布包内；需单独提供有合法授权的 `VMProtect_Con.exe`。
+Linux 容器运行已发布的 Windows x64 程序，不是原生 Linux 构建。VMProtect 不包含在仓库或发布包内；需单独提供有合法授权的 `VMProtect_Con.exe`。推送 `v*` 版本 tag 会自动构建并发布 `ghcr.io/lona-cn/vmpx:<tag>`；非预发布 tag 也会更新 `latest`。首次推送后需在 GitHub Packages 将镜像包可见性设为 Public，公开拉取才无需认证。
 
 ```sh
-docker build -f docker/vmpx-wine/Dockerfile -t vmpx-wine .
+docker pull ghcr.io/lona-cn/vmpx:latest
+
+# 准备发布目录和 noVNC 密码文件。x11vnc 使用传统 VNC 认证，只采用密码前 8 个字符。
+sudo chown -R 10001:10001 /srv/vmpx/release
+umask 077
+openssl rand -hex 4 > /srv/vmpx/vnc_password
+sudo chown 10001:10001 /srv/vmpx/vnc_password
+
 docker run --rm \
   -v /srv/vmpx/release:/opt/vmpx \
+  -v /srv/vmpx/vnc_password:/run/secrets/vnc_password:ro \
   -p 127.0.0.1:11451:11451 \
   -p 127.0.0.1:6080:6080 \
   -e VMProtect_CON=/opt/vmpx/VMProtect_Con.exe \
-  vmpx-wine
+  -e VMPX_ENABLE_NOVNC=1 \
+  ghcr.io/lona-cn/vmpx:latest
 ```
 
-将 Windows x64 发布压缩包解压到 `/srv/vmpx/release`；若不挂载 `VMProtect_Con.exe`，服务仍可运行但不能加壳。容器将 `/opt/vmpx/data` 用作持久化数据目录。noVNC 无密码，仅绑定宿主机回环地址；不要将 6080 端口公开到不可信网络。
+将 Windows x64 发布压缩包解压到 `/srv/vmpx/release`；若不挂载 `VMProtect_Con.exe`，服务仍可运行但不能加壳。容器以 UID/GID `10001` 运行，发布目录和密码文件必须允许该用户读取，`/opt/vmpx/data` 必须可写。noVNC 默认关闭；启用时必须提供只读挂载的密码文件。VNC 密码认证最多使用前 8 个字符，因此示例限制为 8 个随机十六进制字符，并将 6080 绑定到宿主机回环地址；不要将该端口公开到不可信网络。
 
 ## <div align="center">🧩 API 简要</div>
 

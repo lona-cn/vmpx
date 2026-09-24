@@ -4,7 +4,11 @@ build/
 doc/
 vsxmake2022/
 dockerfile/
-docker/
+docker/*
+!docker/vmpx-wine/
+docker/vmpx-wine/*
+!docker/vmpx-wine/Dockerfile
+!docker/vmpx-wine/entrypoint.sh
 .git/
 .dockerignore
 LICENSE
