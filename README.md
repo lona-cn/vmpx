@@ -52,6 +52,7 @@
 ### 自动构建与发布
 
 提交到默认分支 `master` 后，GitHub Actions 会构建 Windows x64 版本并运行 C++ 回归测试；全部通过后才会创建标签为 `snapshot-<完整提交 SHA>` 的预发布版本。面向 `master` 的 Pull Request 执行构建和测试，不发布 Release。每次构建的压缩包也可以从对应的 Actions 运行记录下载。
+CI 使用 GitHub Secret `VMPROTECT_CON_PASSPHRASE` 解密 `app/binaries/VMProtect_Con.zip`；PR 工作流无法访问该 Secret 时会跳过解密。明文仅在构建和测试期间存在，并在打包前删除，不会包含在 Actions artifact 或 Release 中。
 
 在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；服务程序、依赖文件、配置和 Web 页面需保持原有目录结构。请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
 

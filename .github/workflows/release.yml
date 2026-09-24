@@ -18,6 +18,29 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Decrypt VMProtect_Con for CI
+        shell: pwsh
+        env:
+          VMPROTECT_CON_PASSPHRASE: ${{ secrets.VMPROTECT_CON_PASSPHRASE }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:VMPROTECT_CON_PASSPHRASE)) {
+            if ($env:GITHUB_EVENT_NAME -eq 'push') {
+              throw 'Repository secret VMPROTECT_CON_PASSPHRASE is required for push workflows.'
+            }
+            Write-Host 'Passphrase unavailable; skipping VMProtect extraction for this event.'
+            exit 0
+          }
+
+          $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+          if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) { throw '7-Zip was not found under Program Files.' }
+          $archive = Join-Path $env:GITHUB_WORKSPACE 'app/binaries/VMProtect_Con.zip'
+          $outputDirectory = Join-Path $env:GITHUB_WORKSPACE 'app/binaries'
+          & $sevenZip x $archive "-o$outputDirectory" '-y' '-bd' "-p$env:VMPROTECT_CON_PASSPHRASE"
+          if ($LASTEXITCODE -ne 0) { throw "7-Zip extraction failed with exit code $LASTEXITCODE." }
+          if (-not (Test-Path (Join-Path $outputDirectory 'VMProtect_Con.exe') -PathType Leaf)) {
+            throw 'VMProtect_Con.exe was not extracted.'
+          }
+
       - name: Set up MSVC x64
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -63,6 +86,12 @@ jobs:
           if errorlevel 1 exit /b %errorlevel%
           xmake run test_packprocess
           if errorlevel 1 exit /b %errorlevel%
+
+      - name: Remove decrypted VMProtect_Con
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-Item app/binaries/VMProtect_Con.exe -Force -ErrorAction SilentlyContinue
 
       - name: Package runnable server
         shell: pwsh
