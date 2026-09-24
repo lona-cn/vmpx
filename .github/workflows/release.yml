@@ -33,16 +33,9 @@ jobs:
       - name: Build release server
         shell: cmd
         run: |
-          xmake f -c -p windows -a x64 -m release --runtimes=MT -o build --policies=package.precompiled:n,package.install_only -vy > configure.log 2>&1
-          set "CONFIG_EXIT=%errorlevel%"
-          type configure.log
-          if not "%CONFIG_EXIT%"=="0" powershell -NoProfile -Command "Get-Content configure.log | Where-Object { $_ -match 'error:|fatal error|error C[0-9]|failed' } | Select-Object -Last 4 | ForEach-Object { Write-Output ('::error::' + $_) }"
-          if not "%CONFIG_EXIT%"=="0" exit /b %CONFIG_EXIT%
-          xmake build -vDy vmpx_server > build.log 2>&1
-          set "BUILD_EXIT=%errorlevel%"
-          type build.log
-          if not "%BUILD_EXIT%"=="0" powershell -NoProfile -Command "Get-Content build.log | Where-Object { $_ -match 'error:|fatal error|error C[0-9]|failed' } | Select-Object -Last 4 | ForEach-Object { Write-Output ('::error::' + $_) }"
-          if not "%BUILD_EXIT%"=="0" exit /b %BUILD_EXIT%
+          xmake f -c -p windows -a x64 -m release --runtimes=MT -o build --policies=package.precompiled:n,package.install_only -vy
+          if errorlevel 1 exit /b %errorlevel%
+          xmake build -vDy vmpx_server
 
       - name: Package runnable server
         shell: pwsh
