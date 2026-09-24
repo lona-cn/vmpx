@@ -1,934 +1,463 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN" x-data="vmpxApp()" x-init="init()">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VMPX 控制台</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101310">
+  <title>VMPX / 操作终端</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary-color: #4f46e5;
-      --secondary-color: #10b981;
-      --accent-color: #f59e0b;
-      --danger-color: #ef4444;
-      --dark-color: #1f2937;
-      --light-color: #f3f4f6;
+      color-scheme: dark;
+      --bg: #101310;
+      --panel: #191d1a;
+      --panel-raised: #202520;
+      --line: #3a4138;
+      --line-soft: #30362e;
+      --text: #e9ede1;
+      --muted: #9da99a;
+      --signal: #efd34a;
+      --signal-dark: #1d1b0d;
+      --success: #a3ce8e;
+      --danger: #ef9685;
+      --mono: 'IBM Plex Mono', Consolas, monospace;
+      --display: 'Rajdhani', 'Noto Sans SC', sans-serif;
+      --body: 'Noto Sans SC', sans-serif;
     }
-    
-    body {
-      font-family: 'Inter', system-ui, sans-serif;
-      background-color: #f9fafb;
-      color: #374151;
+    * { box-sizing: border-box; }
+    [x-cloak] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 320px; background: var(--bg); color: var(--text); font: 14px/1.55 var(--body); -webkit-font-smoothing: antialiased; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .55; }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+    ::selection { background: var(--signal); color: var(--bg); }
+    .shell { max-width: 1600px; margin: 0 auto; padding: 0 42px; }
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .eyebrow { color: var(--signal); font: 600 11px/1.3 var(--mono); letter-spacing: .16em; text-transform: uppercase; }
+    .muted { color: var(--muted); }
+    .topbar { background: #0c0f0c; border-bottom: 1px solid var(--line); }
+    .topbar-inner { display: flex; align-items: center; min-height: 76px; gap: 38px; }
+    .brand { display: inline-flex; align-items: center; gap: 14px; flex-shrink: 0; }
+    .brand-mark { width: 39px; height: 39px; display: grid; place-items: center; background: var(--signal); color: #141710; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); }
+    .brand-mark svg { width: 25px; height: 25px; }
+    .brand-name { display: block; font: 700 27px/.9 var(--display); letter-spacing: .075em; }
+    .brand-sub { display: block; margin-top: 6px; color: var(--muted); font: 500 9px/1 var(--mono); letter-spacing: .13em; }
+    .topnav { display: flex; align-items: stretch; align-self: stretch; gap: 2px; margin-left: 36px; }
+    .topnav a { display: flex; align-items: center; padding: 2px 18px 0; border-bottom: 2px solid transparent; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .06em; transition: color .2s, border-color .2s; }
+    .topnav a:hover, .topnav a:first-child { color: var(--text); border-bottom-color: var(--signal); }
+    .top-status { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--muted); white-space: nowrap; font: 500 11px var(--mono); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 3px #9da99a22; }
+    .status-dot.ok { background: var(--success); box-shadow: 0 0 0 3px #a3ce8e26; }
+    .status-dot.error { background: var(--danger); box-shadow: 0 0 0 3px #ef968526; }
+    .dispatch-strip { height: 27px; display: flex; align-items: center; justify-content: center; gap: 15px; overflow: hidden; background: var(--signal); color: #24230e; font: 700 10px/1 var(--mono); letter-spacing: .17em; text-align: center; }
+    .dispatch-strip::before, .dispatch-strip::after { content: ''; height: 100%; width: 100px; flex-shrink: 0; opacity: .65; background: repeating-linear-gradient(115deg, transparent 0 7px, #24230e 7px 10px, transparent 10px 17px); }
+    .workspace { position: relative; padding-top: 42px; padding-bottom: 70px; }
+    .workspace::before { content: ''; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 390px; pointer-events: none; background: radial-gradient(ellipse at 77% 0%, #7c72251b, transparent 55%), linear-gradient(#efd34a08 1px, transparent 1px), linear-gradient(90deg, #efd34a08 1px, transparent 1px); background-size: auto, 32px 32px, 32px 32px; mask-image: linear-gradient(black, transparent); }
+    .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 25px; margin-bottom: 28px; }
+    .page-heading h1 { margin: 9px 0 4px; font: 700 clamp(38px, 5vw, 64px)/.98 var(--display); letter-spacing: .025em; text-transform: uppercase; text-wrap: balance; }
+    .page-heading h1 span { color: var(--signal); }
+    .page-heading p { margin: 11px 0 0; color: var(--muted); font-size: 13px; text-wrap: pretty; }
+    .heading-meta { display: flex; gap: 20px; align-items: end; padding-bottom: 5px; }
+    .heading-meta div { padding-left: 19px; border-left: 1px solid var(--line); }
+    .heading-meta strong { display: block; font: 700 27px/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; }
+    .heading-meta small { display: block; margin-top: 6px; color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; white-space: nowrap; }
+    .dashboard { display: grid; grid-template-columns: minmax(238px, .86fr) minmax(380px, 1.54fr) minmax(290px, 1fr); align-items: stretch; gap: 16px; }
+    .panel { min-width: 0; background: var(--panel); border: 1px solid var(--line); box-shadow: inset 0 1px #ffffff08, 0 14px 36px #0000001b; }
+    .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-height: 92px; padding: 20px 21px 17px; border-bottom: 1px solid var(--line-soft); }
+    .section-no { display: inline-flex; align-items: center; gap: 9px; color: var(--signal); font: 600 10px/1 var(--mono); letter-spacing: .11em; }
+    .section-no::before { content: ''; width: 9px; height: 9px; border: 1px solid var(--signal); transform: rotate(45deg); }
+    .panel-header h2 { margin: 8px 0 0; font: 700 23px/1 var(--display); letter-spacing: .035em; }
+    .panel-header h2 small { margin-left: 7px; color: var(--muted); font: 500 10px var(--mono); vertical-align: 3px; }
+    .panel-content { padding: 21px; }
+    .section-note { color: var(--muted); font-size: 12px; margin: 0 0 18px; }
+    .text-button { background: transparent; border: 0; color: var(--signal); padding: 8px 0; font: 600 11px var(--mono); white-space: nowrap; transition: color .2s; }
+    .text-button:hover { color: #fff0a4; }
+    .text-button:disabled { opacity: .5; }
+    .app-list { display: flex; flex-direction: column; gap: 8px; max-height: 455px; overflow: auto; padding: 0 4px 4px 0; margin: 0; list-style: none; }
+    .app-item { position: relative; padding: 14px; background: #111511; border: 1px solid var(--line-soft); transition: border-color .2s, background-color .2s; }
+    .app-item:hover, .app-item.selected { border-color: #b6a640; background: #27291c; }
+    .app-item.selected::before { content: ''; position: absolute; left: -1px; top: 11px; bottom: 11px; width: 3px; background: var(--signal); }
+    .app-item-top { display: flex; align-items: flex-start; gap: 8px; }
+    .app-item .app-name { overflow-wrap: anywhere; min-width: 0; flex: 1; color: var(--text); font-weight: 700; font-size: 13px; }
+    .app-index { color: var(--signal); font: 10px var(--mono); padding-top: 3px; }
+    .app-item .app-sub { display: block; margin: 5px 0 12px 20px; color: var(--muted); font: 10px var(--mono); letter-spacing: .05em; }
+    .app-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .empty-state { padding: 44px 12px; border: 1px dashed var(--line); text-align: center; }
+    .empty-state strong { display: block; margin: 12px 0 5px; font: 700 20px var(--display); }
+    .empty-state p { margin: 0; color: var(--muted); font-size: 12px; }
+    .empty-state .empty-symbol { color: var(--signal); font: 500 30px var(--display); }
+    .inventory-footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-soft); color: var(--muted); font: 10px var(--mono); }
+    .inventory-footer span:last-child { color: var(--success); }
+    .field { display: flex; flex-direction: column; min-width: 0; gap: 8px; }
+    .field label, .field-label { color: #c5ccbd; font: 600 10px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .field label .optional { color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+    .control { width: 100%; min-height: 43px; border: 1px solid #465044; border-radius: 0; background: #111511; color: var(--text); padding: 10px 12px; outline: none; transition: border-color .2s, background-color .2s; }
+    .control::placeholder { color: #7f8b7f; }
+    .control:focus { border-color: var(--signal); background: #171b15; }
+    .control[type="date"] { color-scheme: dark; }
+    .editor-wrap { position: relative; }
+    .editor-wrap::before, .editor-wrap::after { content: ''; position: absolute; z-index: 1; width: 11px; height: 11px; pointer-events: none; }
+    .editor-wrap::before { top: 0; left: 0; border-top: 2px solid var(--signal); border-left: 2px solid var(--signal); }
+    .editor-wrap::after { bottom: 0; right: 0; border-right: 2px solid var(--signal); border-bottom: 2px solid var(--signal); }
+    textarea.control { display: block; min-height: 360px; resize: vertical; font: 12px/1.65 var(--mono); tab-size: 2; padding: 18px; }
+    .editor-meta { display: flex; justify-content: space-between; gap: 10px; margin: 10px 0 20px; color: var(--muted); font: 10px var(--mono); }
+    .editor-meta span:last-child { color: var(--success); }
+    .editor-actions { display: flex; align-items: end; gap: 10px; }
+    .editor-actions .field { max-width: 132px; }
+    .editor-actions .action { flex: 1; }
+    .action { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 43px; padding: 9px 15px; border: 1px solid #6e7868; border-radius: 0; background: #262c25; color: var(--text); font: 700 12px/1.2 var(--body); letter-spacing: .02em; white-space: nowrap; transition: background-color .2s, border-color .2s, color .2s, transform .2s; }
+    .action:hover:not(:disabled) { border-color: var(--signal); background: #383a24; }
+    .action:active:not(:disabled) { transform: scale(.96); }
+    .action-primary { background: var(--signal); border-color: var(--signal); color: var(--signal-dark); }
+    .action-primary:hover:not(:disabled) { background: #ffe877; color: #17170c; }
+    .action-quiet { background: #131713; border-color: #444c40; }
+    .action-quiet:hover:not(:disabled) { color: var(--signal); }
+    .action-small { min-height: 34px; padding: 7px 8px; font-size: 11px; }
+    .action svg { width: 15px; height: 15px; flex: none; }
+    .serial-fields { display: grid; gap: 15px; }
+    .check-row { display: flex; gap: 10px; align-items: center; min-height: 40px; color: var(--text); cursor: pointer; font-size: 12px; }
+    .check-row input { width: 16px; height: 16px; accent-color: var(--signal); margin: 0; }
+    .serial-submit { width: 100%; margin-top: 17px; }
+    .output-block { margin-top: 23px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
+    .output-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .output-heading strong { font: 600 10px var(--mono); letter-spacing: .1em; color: var(--muted); }
+    .output-heading span { color: var(--success); font: 10px var(--mono); }
+    .output-block pre { min-height: 96px; max-height: 180px; overflow: auto; margin: 0; padding: 13px; background: #101410; border: 1px solid var(--line-soft); color: #c5d9b6; font: 11px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .output-block .action { width: 100%; margin-top: 9px; }
+    .upload { margin-top: 16px; }
+    .upload .panel-header { min-height: 85px; }
+    .upload-content { display: grid; grid-template-columns: 1.12fr .9fr 1fr auto; gap: 13px; align-items: end; }
+    .file-control { padding: 8px; font-size: 11px; color: var(--muted); }
+    .file-control::file-selector-button { padding: 5px 10px; margin-right: 10px; border: 1px solid #6e7868; background: #2b3029; color: var(--text); cursor: pointer; }
+    .upload-help { margin: 14px 0 0; color: var(--muted); font: 10px var(--mono); }
+    .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding: 22px 0 30px; color: var(--muted); font: 10px var(--mono); letter-spacing: .05em; }
+    .footer b { color: var(--signal); font-weight: 600; }
+    .toast { position: fixed; z-index: 20; right: 24px; bottom: 24px; width: min(380px, calc(100vw - 32px)); display: flex; align-items: flex-start; gap: 13px; padding: 17px; background: #252c22; border: 1px solid var(--success); box-shadow: 0 16px 48px #0009; transition: transform .25s ease, opacity .25s ease; }
+    .toast.hidden { transform: translateY(12px); opacity: 0; pointer-events: none; }
+    .toast[data-type="danger"] { border-color: var(--danger); }
+    .toast[data-type="warning"] { border-color: var(--signal); }
+    .toast-symbol { color: var(--success); font: 700 20px/1 var(--display); }
+    .toast[data-type="danger"] .toast-symbol { color: var(--danger); }
+    .toast[data-type="warning"] .toast-symbol { color: var(--signal); }
+    .toast-message { flex: 1; padding-top: 1px; font-size: 12px; }
+    .toast-close { min-width: 32px; min-height: 32px; border: 0; background: transparent; color: var(--muted); font: 22px/1 var(--display); }
+    .toast-close:hover { color: var(--text); }
+    @media (max-width: 1200px) {
+      .shell { padding-left: 26px; padding-right: 26px; }
+      .dashboard { grid-template-columns: minmax(235px, .85fr) minmax(340px, 1.35fr); }
+      .serial-panel { grid-column: 1 / -1; }
+      .serial-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .serial-panel .panel-content { display: grid; grid-template-columns: 1fr 260px; gap: 20px; align-items: end; }
+      .serial-panel form { min-width: 0; }
+      .output-block { margin: 0; padding: 0 0 0 20px; border-top: 0; border-left: 1px solid var(--line-soft); }
+      .upload-content { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .upload-content .action { grid-column: 3; }
     }
-    
-    .card {
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    @media (max-width: 760px) {
+      .shell { padding-left: 18px; padding-right: 18px; }
+      .topbar-inner { min-height: 68px; gap: 14px; }
+      .brand-name { font-size: 24px; }
+      .brand-mark { width: 34px; height: 34px; }
+      .brand-mark svg { width: 22px; }
+      .topnav { display: none; }
+      .top-status { font-size: 10px; }
+      .dispatch-strip { font-size: 9px; letter-spacing: .05em; gap: 8px; }
+      .dispatch-strip::before, .dispatch-strip::after { width: 32px; }
+      .workspace { padding-top: 31px; padding-bottom: 42px; }
+      .page-heading { display: block; margin-bottom: 23px; }
+      .page-heading h1 { font-size: clamp(40px, 11vw, 59px); }
+      .page-heading p { max-width: 36ch; }
+      .heading-meta { margin-top: 24px; }
+      .dashboard { display: flex; flex-direction: column; gap: 13px; }
+      .panel-header { min-height: 80px; }
+      .app-list { max-height: 315px; }
+      textarea.control { min-height: 275px; }
+      .serial-panel .panel-content { display: block; }
+      .serial-fields { grid-template-columns: 1fr 1fr; }
+      .output-block { margin-top: 23px; padding: 18px 0 0; border-top: 1px solid var(--line-soft); border-left: 0; }
+      .upload-content { grid-template-columns: 1fr 1fr; }
+      .upload-content .field:first-child { grid-column: 1 / -1; }
+      .upload-content .action { grid-column: 1 / -1; }
     }
-    
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    @media (max-width: 460px) {
+      .top-status span:last-child { display: none; }
+      .top-status { margin-left: auto; }
+      .dispatch-strip::before, .dispatch-strip::after { width: 17px; }
+      .serial-fields, .upload-content { grid-template-columns: 1fr; }
+      .upload-content .field:first-child, .upload-content .action { grid-column: auto; }
+      .heading-meta { gap: 10px; }
+      .heading-meta div { padding-left: 12px; }
+      .editor-actions { align-items: stretch; }
+      .editor-actions .field { width: 110px; flex: none; }
+      .editor-actions .action { white-space: normal; }
+      .footer { font-size: 9px; }
     }
-    
-    .btn {
-      transition: all 0.3s ease;
-    }
-    
-    .btn-primary {
-      background-color: var(--primary-color);
-      border-color: var(--primary-color);
-    }
-    
-    .btn-primary:hover {
-      background-color: #4338ca;
-      border-color: #4338ca;
-      transform: translateY(-1px);
-    }
-    
-    .btn-success {
-      background-color: var(--secondary-color);
-      border-color: var(--secondary-color);
-    }
-    
-    .btn-success:hover {
-      background-color: #059669;
-      border-color: #059669;
-      transform: translateY(-1px);
-    }
-    
-    .btn-warning {
-      background-color: var(--accent-color);
-      border-color: var(--accent-color);
-    }
-    
-    .btn-warning:hover {
-      background-color: #d97706;
-      border-color: #d97706;
-      transform: translateY(-1px);
-    }
-    
-    .btn-outline-secondary:hover {
-      background-color: var(--light-color);
-      transform: translateY(-1px);
-    }
-    
-    .btn-outline-primary {
-      border-color: var(--primary-color);
-      color: var(--primary-color);
-    }
-    
-    .btn-outline-primary:hover {
-      background-color: var(--primary-color);
-      color: white;
-      transform: translateY(-1px);
-    }
-    
-    .btn-outline-dark {
-      border-color: var(--dark-color);
-      color: var(--dark-color);
-    }
-    
-    .btn-outline-dark:hover {
-      background-color: var(--dark-color);
-      color: white;
-      transform: translateY(-1px);
-    }
-    
-    .input-group-text {
-      background-color: var(--light-color);
-      border-color: #e5e7eb;
-    }
-    
-    .form-control:focus {
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
-    }
-    
-    textarea {
-      font-family: 'Monaco', 'Consolas', monospace;
-    }
-    
-    pre {
-      font-family: 'Monaco', 'Consolas', monospace;
-      background-color: #f3f4f6;
-      border: 1px solid #e5e7eb;
-      border-radius: 0.375rem;
-      padding: 1rem;
-      overflow-x: auto;
-      font-size: 0.875rem;
-    }
-    
-    .list-group-item {
-      transition: background-color 0.2s ease;
-    }
-    
-    .list-group-item:hover {
-      background-color: #f9fafb;
-    }
-    
-    .toast {
-      border-radius: 0.5rem;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-      animation: slideIn 0.3s ease-out;
-    }
-    
-    @keyframes slideIn {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    
-    .header-gradient {
-      background: linear-gradient(135deg, var(--primary-color), #7c3aed);
-    }
-    
-    /* 滚动条样式 */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-      background: #c5c5c5;
-      border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-      background: #a8a8a8;
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
-  <!-- 顶部导航栏 -->
-  <header class="header-gradient text-white py-4 shadow-lg">
-    <div class="container mx-auto px-4">
-      <div class="flex justify-between items-center">
-        <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold flex items-center">
-          <span class="text-2xl mr-2">🎛️</span>
-          VMPX 控制台
-        </h1>
-        <button 
-          class="bg-white bg-opacity-20 hover:bg-opacity-30 transition-all px-4 py-2 rounded-lg flex items-center"
-          @click="init()"
-        >
-          <span class="mr-2">🔄</span>
-          刷新应用列表
-        </button>
-      </div>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a href="#top" class="brand" aria-label="VMPX 返回顶部">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M5 8 16 25 27 8M10 8l6 10 6-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/></svg></span>
+        <span><span class="brand-name">VMPX</span><span class="brand-sub">CONTROL SYSTEM / 控制台</span></span>
+      </a>
+      <nav class="topnav" aria-label="控制台导航">
+        <a href="#applications">应用目录</a><a href="#product">产品信息</a><a href="#serial">序列号</a><a href="#upload">上传部署</a>
+      </nav>
+      <div class="top-status" role="status"><span class="status-dot" :class="{'ok': serviceState === 'online', 'error': serviceState === 'offline'}"></span><span x-text="serviceState === 'online' ? 'API 已连接' : serviceState === 'offline' ? 'API 连接失败' : '正在连接 API'"></span></div>
     </div>
   </header>
+  <div class="dispatch-strip" aria-hidden="true"><span>VMPX // APPLICATION PROTECTION &amp; LICENSE OPERATIONS</span></div>
 
-  <!-- 主要内容 -->
-  <main class="container mx-auto px-4 py-8">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- 左：App 列表 -->
-      <div class="card bg-white rounded-xl shadow-md p-5">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold text-gray-800 flex items-center">
-            <span class="text-lg mr-2">📦</span>
-            App 列表
-          </h2>
-          <button 
-            class="btn btn-sm btn-outline-secondary rounded-full px-4"
-            @click="init()"
-          >
-            <span class="mr-1">🔄</span>
-            刷新
-          </button>
-        </div>
-        <div class="overflow-y-auto max-h-[400px] pr-1">
-          <ul class="rounded-lg overflow-hidden border">
-            <template x-for="name in apps" :key="name">
-              <li class="border-b last:border-b-0">
-                <div class="p-3 flex justify-between items-center bg-white">
-                  <span class="font-medium text-gray-700" x-text="name"></span>
-                  <div class="btn-group">
-                    <button 
-                      class="btn btn-sm btn-outline-primary rounded-l-md px-3"
-                      @click="loadProductInfo(name)"
-                      x-tooltip="加载产品信息"
-                    >
-                      加载
-                    </button>
-                    <button 
-                      class="btn btn-sm btn-outline-dark rounded-r-md px-3"
-                      @click="packApp(name)"
-                      x-tooltip="加壳应用"
-                    >
-                      加壳
-                    </button>
-                  </div>
-                </div>
+  <main id="top" class="shell workspace">
+    <div class="page-heading">
+      <div><div class="eyebrow">OPERATIONS / 01 — MAIN TERMINAL</div><h1>应用<span>操作终端</span></h1><p>管理应用 · 配置产品信息 · 生成授权序列号</p></div>
+      <div class="heading-meta" aria-label="工作台概况">
+        <div><strong x-text="String(apps.length).padStart(2, '0')">00</strong><small>已登记应用</small></div>
+        <div><strong x-text="selectedApp ? '01' : '00'">00</strong><small>当前选中</small></div>
+      </div>
+    </div>
+
+    <div class="dashboard">
+      <section class="panel" id="applications" aria-labelledby="applications-title">
+        <div class="panel-header"><div><span class="section-no">01 / INVENTORY</span><h2 id="applications-title">应用目录 <small>APP INDEX</small></h2></div><button class="text-button" type="button" @click="init()" :disabled="loadingList" aria-label="刷新应用列表">↻ 刷新</button></div>
+        <div class="panel-content">
+          <p class="section-note">选择应用加载产品信息，或直接执行加壳。</p>
+          <ul class="app-list" x-show="apps.length > 0" x-cloak>
+            <template x-for="(name, index) in apps" :key="name">
+              <li class="app-item" :class="{'selected': selectedApp === name}">
+                <div class="app-item-top"><span class="app-index" x-text="String(index + 1).padStart(2, '0')"></span><span class="app-name" x-text="name"></span></div>
+                <span class="app-sub" x-text="selectedApp === name ? '● 当前已加载' : '○ 等待选择'"></span>
+                <div class="app-actions"><button class="action action-small" type="button" @click="loadProductInfo(name)" :disabled="loadingProduct" :aria-label="'加载 ' + name + ' 的产品信息'">加载信息 ↗</button><button class="action action-small action-quiet" type="button" @click="packApp(name)" :disabled="packingApp !== ''" :aria-label="'加壳并下载 ' + name" x-text="packingApp === name ? '处理中…' : '加壳下载 ↓'"></button></div>
               </li>
             </template>
           </ul>
-          <div class="mt-2 text-center text-gray-500 text-sm" x-show="apps.length === 0">
-            暂无应用，请上传新应用
-          </div>
+          <div class="empty-state" x-show="!loadingList && apps.length === 0 && serviceState === 'online'" x-cloak><span class="empty-symbol" aria-hidden="true">◇</span><strong>暂无已登记应用</strong><p>在下方上传第一个应用文件。</p></div>
+          <div class="empty-state" x-show="loadingList && apps.length === 0" x-cloak><span class="empty-symbol" aria-hidden="true">⌁</span><strong>正在获取应用目录</strong></div>
+          <div class="empty-state" x-show="!loadingList && apps.length === 0 && serviceState === 'offline'" x-cloak><span class="empty-symbol" aria-hidden="true">!</span><strong>无法连接服务</strong><p>请检查服务状态并点击刷新重试。</p></div>
+          <div class="inventory-footer"><span>INDEX / <span x-text="String(apps.length).padStart(2, '0')"></span> ENTRIES</span><span x-text="serviceState === 'online' ? '● DATA READY' : '○ AWAITING DATA'"></span></div>
         </div>
-      </div>
+      </section>
 
-      <!-- 中：ProductInfo -->
-      <div class="card bg-white rounded-xl shadow-md p-5">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <span class="text-lg mr-2">🧬</span>
-          ProductInfo
-        </h2>
-        <textarea 
-          class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 mb-3"
-          rows="12" 
-          x-model="productInfoText" 
-          spellcheck="false" 
-          placeholder="点击 App 列表项加载或手动粘贴..."
-        ></textarea>
-        <div class="flex flex-col sm:flex-row justify-between gap-3">
-          <div class="input-group flex-1 max-w-xs">
-            <span class="input-group-text bg-gray-100">Key Size</span>
-            <input 
-              type="number" 
-              class="form-control" 
-              x-model.number="keySize" 
-              min="1024" 
-              step="1024"
-            />
-          </div>
-          <button 
-            class="btn btn-primary rounded-lg px-6 py-2 font-medium flex items-center justify-center"
-            @click="generateRandomProductInfo()"
-          >
-            <span class="mr-2">🎲</span>
-            随机生成
-          </button>
+      <section class="panel" id="product" aria-labelledby="product-title">
+        <div class="panel-header"><div><span class="section-no">02 / CONFIGURATION</span><h2 id="product-title">产品信息 <small>PRODUCT INFO</small></h2></div><span class="eyebrow" style="padding-top:7px" x-text="selectedApp ? 'LOADED' : 'EDITOR'">EDITOR</span></div>
+        <div class="panel-content">
+          <p class="section-note">从应用目录载入配置，或直接粘贴 ProductInfo JSON。</p>
+          <div class="field"><label for="productInfo">PRODUCTINFO / JSON 编辑器</label><div class="editor-wrap"><textarea id="productInfo" class="control" x-model="productInfoText" spellcheck="false" placeholder="{&#10;  &quot;product_name&quot;: &quot;...&quot;&#10;}" aria-describedby="editor-meta"></textarea></div></div>
+          <div class="editor-meta" id="editor-meta"><span x-text="selectedApp ? 'SOURCE / ' + selectedApp : 'SOURCE / 手动输入或随机生成'"></span><span x-text="productInfoText.trim() ? '● 已填写' : '○ 等待输入'"></span></div>
+          <div class="editor-actions"><div class="field"><label for="keySize">RSA 密钥位数</label><input id="keySize" class="control mono" type="number" x-model.number="keySize" min="1024" step="1024"></div><button class="action action-primary" type="button" @click="generateRandomProductInfo()" :disabled="generatingProduct"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 1.5 11.8 8.2 18.5 10l-6.7 1.8L10 18.5l-1.8-6.7L1.5 10l6.7-1.8L10 1.5Z" stroke="currentColor" stroke-width="1.6"/></svg><span x-text="generatingProduct ? '正在生成…' : '随机生成产品信息'"></span></button></div>
         </div>
-      </div>
+      </section>
 
-      <!-- 右：序列号 -->
-      <div class="card bg-white rounded-xl shadow-md p-5">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <span class="text-lg mr-2">🔐</span>
-          生成序列号
-        </h2>
-        <form @submit.prevent="generateSerial()" class="space-y-3">
-          <input 
-            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            placeholder="用户名（可选）" 
-            x-model="serial.user_name" 
-          />
-          <input 
-            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            placeholder="邮箱（可选）" 
-            x-model="serial.email" 
-            type="email"
-          />
-          <input 
-            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            placeholder="硬件ID（可选）" 
-            x-model="serial.hwid" 
-          />
-          <input 
-            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            type="date" 
-            x-model="serial.exp_date" 
-            required 
-          />
-          <div class="form-check">
-            <input 
-              class="form-check-input rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              type="checkbox" 
-              x-model="ignoreAdapters" 
-              id="ignoreAdapters" 
-            />
-            <label class="form-check-label text-gray-700" for="ignoreAdapters">
-              忽略网卡
-            </label>
-          </div>
-          <button 
-            class="btn btn-success w-100 py-2 font-medium rounded-lg"
-            type="submit"
-          >
-            <span class="mr-2">✨</span>
-            生成序列号
-          </button>
-        </form>
-        <div class="mt-4">
-          <pre 
-            class="p-3 border rounded-lg bg-gray-50 text-sm text-gray-700 max-h-[200px] overflow-auto"
-            x-text="serialOutput"
-            x-show="serialOutput"
-          ></pre>
-          <button 
-            class="btn btn-outline-secondary rounded-lg px-4 py-1 mt-2 transition-all"
-            @click="copySerial()" 
-            x-show="serialOutput"
-          >
-            <span class="mr-1">📋</span>
-            复制序列号
-          </button>
+      <section class="panel serial-panel" id="serial" aria-labelledby="serial-title">
+        <div class="panel-header"><div><span class="section-no">03 / LICENSING</span><h2 id="serial-title">授权序列号 <small>SERIAL GENERATOR</small></h2></div></div>
+        <div class="panel-content">
+          <form @submit.prevent="generateSerial()">
+            <p class="section-note">填写授权参数，使用当前产品信息签发序列号。</p>
+            <div class="serial-fields">
+              <div class="field"><label for="userName">用户名 <span class="optional">/ 可选</span></label><input id="userName" class="control" x-model="serial.user_name" placeholder="授权用户名" autocomplete="off"></div>
+              <div class="field"><label for="email">邮箱 <span class="optional">/ 可选</span></label><input id="email" class="control" x-model="serial.email" type="email" placeholder="name@example.com" autocomplete="off"></div>
+              <div class="field"><label for="hwid">硬件 ID <span class="optional">/ 可选</span></label><input id="hwid" class="control mono" x-model="serial.hwid" placeholder="HWID"></div>
+              <div class="field"><label for="expDate">到期日期 <span aria-hidden="true">*</span></label><input id="expDate" class="control" type="date" x-model="serial.exp_date" required></div>
+            </div>
+            <label class="check-row"><input type="checkbox" x-model="ignoreAdapters"><span>忽略网卡信息</span></label>
+            <button class="action action-primary serial-submit" type="submit" :disabled="generatingSerial"><span x-text="generatingSerial ? '正在生成…' : '生成授权序列号'"></span><span aria-hidden="true">↗</span></button>
+          </form>
+          <div class="output-block"><div class="output-heading"><strong>OUTPUT / 生成结果</strong><span x-text="serialOutput ? '● READY' : '○ STANDBY'"></span></div><pre x-text="serialOutput || '等待生成序列号…'" aria-live="polite"></pre><button class="action action-quiet" type="button" @click="copySerial()" :disabled="!serialOutput">复制序列号 ↗</button></div>
         </div>
-      </div>
+      </section>
     </div>
 
-    <!-- App 上传 -->
-    <div class="mt-8 card bg-white rounded-xl shadow-md p-6">
-      <h2 class="text-xl font-semibold text-gray-800 mb-5 flex items-center">
-        <span class="text-lg mr-2">📤</span>
-        上传新 App
-      </h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-        <div class="mb-3">
-          <label for="appFile" class="block text-sm font-medium text-gray-700 mb-1">
-            选择文件
-          </label>
-          <div class="relative">
-            <input 
-              type="file" 
-              id="appFile"
-              class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              x-ref="appFile" 
-            />
-          </div>
-        </div>
-        <div class="mb-3">
-          <label for="newAppName" class="block text-sm font-medium text-gray-700 mb-1">
-            App 名称 <span class="text-red-500">*</span>
-          </label>
-          <input 
-            type="text" 
-            id="newAppName"
-            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            placeholder="App 名称（必填）" 
-            x-model="newAppName" 
-          />
-        </div>
-        <div class="mb-3">
-          <label for="newAppPath" class="block text-sm font-medium text-gray-700 mb-1">
-            App 文件路径（可选）
-          </label>
-          <input 
-            type="text" 
-            id="newAppPath"
-            class="form-control rounded-lg border-gray-300 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            placeholder="App 文件路径（可选）" 
-            x-model="newAppPath" 
-          />
-        </div>
-      </div>
-      <button 
-        class="btn btn-warning mt-4 px-6 py-2 font-medium rounded-lg flex items-center"
-        @click="uploadApp()"
-      >
-        <span class="mr-2">🚀</span>
-        上传应用
-      </button>
-    </div>
+    <section class="panel upload" id="upload" aria-labelledby="upload-title">
+      <div class="panel-header"><div><span class="section-no">04 / DEPLOYMENT</span><h2 id="upload-title">上传新应用 <small>NEW APPLICATION</small></h2></div></div>
+      <div class="panel-content"><div class="upload-content">
+        <div class="field"><label for="appFile">应用文件 / ZIP 或程序文件</label><input id="appFile" class="control file-control" type="file" x-ref="appFile"></div>
+        <div class="field"><label for="newAppName">应用名称 *</label><input id="newAppName" class="control" x-model="newAppName" placeholder="输入应用名称"></div>
+        <div class="field"><label for="newAppPath">VMP 文件路径 <span class="optional">/ 可选</span></label><input id="newAppPath" class="control mono" x-model="newAppPath" placeholder="相对路径"></div>
+        <button class="action action-primary" type="button" @click="uploadApp()" :disabled="uploading"><span x-text="uploading ? '正在上传…' : '上传应用'"></span><span aria-hidden="true">↗</span></button>
+      </div><p class="upload-help">UPLOAD PIPELINE / 选择文件并填写名称后提交至当前服务。</p></div>
+    </section>
   </main>
-  
-  <!-- 页脚 -->
-  <footer class="bg-gray-100 border-t border-gray-200 mt-12 py-6">
-    <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
-      <p>VMPX 控制台 &copy; 2023</p>
-    </div>
-  </footer>
 
-  <!-- Toast 提示区域 -->
-  <div 
-    class="fixed bottom-4 right-4 z-50 transition-all duration-300 transform translate-x-full opacity-0" 
-    id="toastBox"
-    x-ref="toastBox"
-  >
-    <div class="bg-success text-white rounded-lg shadow-lg p-4 max-w-xs">
-      <div class="flex items-start">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="ml-3">
-          <p class="text-sm font-medium" id="toastMessage">操作成功</p>
-        </div>
-        <button 
-          type="button" 
-          class="ml-auto flex-shrink-0 inline-flex items-center justify-center rounded-md text-white hover:text-gray-200 focus:outline-none"
-          onclick="document.getElementById('toastBox').classList.add('translate-x-full', 'opacity-0')"
-        >
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  </div>
+  <footer class="shell footer"><span><b>VMPX</b> / APPLICATION OPERATIONS CONSOLE</span><span>PRODUCT INFO · PACKAGING · SERIAL LICENSING</span></footer>
+  <div id="toastBox" class="toast hidden" data-type="success" role="status" aria-live="polite" aria-atomic="true"><span class="toast-symbol" aria-hidden="true" id="toastSymbol">✓</span><span class="toast-message" id="toastMessage"></span><button class="toast-close" type="button" aria-label="关闭提示" onclick="document.getElementById('toastBox').classList.add('hidden')">×</button></div>
 
   <script>
-    function getFileNameFromDispositionOld(header) {
-      if (!header) return null;
-      const match = decodeURIComponent(header).match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
-      if (match && match[1]) {
-        try {
-          //return decodeURIComponent(match[1].replace(/["']/g, ''));
-          return match1[1]
-        } catch (e) {
-          return match[1];
-        }
-      }
-      return null;
-    }
     function getFileNameFromDisposition(header) {
       if (!header) return null;
-
-      const str = decodeURIComponent(header);
-      const prefix = "filename*=UTF-8''";
-      const start = str.indexOf(prefix);
-      if (start === -1) return null;
-
-      // 从 prefix 后面开始截取
-      let rest = str.substring(start + prefix.length);
-
-      // 截取到分号或结尾
-      const end = rest.indexOf(';');
-      if (end !== -1) {
-        rest = rest.substring(0, end);
-      }
-
-      // 去除可能的引号和空白
-      //return rest.trim().replace(/^["']|["']$/g, '');
-      return rest;
+      const match = header.match(/filename\*=UTF-8''([^;]+)/i);
+      if (!match) return null;
+      try { return decodeURIComponent(match[1]); }
+      catch { return null; }
     }
 
     function vmpxApp() {
       return {
         apps: [],
+        serviceState: 'connecting',
+        selectedApp: '',
+        loadingList: false,
+        loadingProduct: false,
+        generatingProduct: false,
+        generatingSerial: false,
+        packingApp: '',
+        uploading: false,
+        toastTimer: null,
         keySize: 2048,
         productInfoText: '',
-        serial: {
-          user_name: '',
-          email: '',
-          hwid: '',
-          exp_date: ''
-        },
+        serial: { user_name: '', email: '', hwid: '', exp_date: '' },
         ignoreAdapters: false,
         serialOutput: '',
         newAppName: '',
         newAppPath: '',
 
         async init() {
+          this.loadingList = true;
           try {
             const res = await fetch('/api/v1/app/list');
             if (!res.ok) throw new Error('网络请求失败');
             this.apps = await res.json();
-            this.showToast('应用列表已更新', 'success');
+            this.serviceState = 'online';
+            if (this.selectedApp && !this.apps.includes(this.selectedApp)) this.selectedApp = '';
           } catch (error) {
-            console.error('初始化失败:', error);
+            console.error('加载应用列表失败:', error);
+            this.serviceState = 'offline';
             this.showToast('加载应用列表失败', 'danger');
+          } finally {
+            this.loadingList = false;
           }
         },
 
         async generateRandomProductInfo() {
+          this.generatingProduct = true;
           try {
             const res = await fetch('/api/v1/gen_random_product_info', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key_size: this.keySize })
             });
             if (!res.ok) throw new Error('网络请求失败');
-            const data = await res.json();
-            this.productInfoText = JSON.stringify(data, null, 2);
-            this.showToast('已生成随机 ProductInfo', 'success');
+            this.productInfoText = JSON.stringify(await res.json(), null, 2);
+            this.selectedApp = '';
+            this.serialOutput = '';
+            this.showToast('已生成随机 ProductInfo');
           } catch (error) {
             console.error('生成失败:', error);
             this.showToast('生成 ProductInfo 失败', 'danger');
-          }
+          } finally { this.generatingProduct = false; }
         },
 
         async loadProductInfo(name) {
+          this.loadingProduct = true;
           try {
             const res = await fetch(`/api/v1/app/product_info?name=${encodeURIComponent(name)}`);
             if (!res.ok) throw new Error('网络请求失败');
-            const data = await res.json();
-            this.productInfoText = JSON.stringify(data, null, 2);
-            this.showToast(`已加载 ${name} 的 ProductInfo`, 'success');
+            this.productInfoText = JSON.stringify(await res.json(), null, 2);
+            this.selectedApp = name;
+            this.serialOutput = '';
+            this.showToast(`已加载 ${name} 的 ProductInfo`);
           } catch (error) {
             console.error('加载失败:', error);
             this.showToast('加载 ProductInfo 失败', 'danger');
-          }
+          } finally { this.loadingProduct = false; }
         },
 
         async generateSerial() {
           let parsed;
-          try {
-            parsed = JSON.parse(this.productInfoText);
-          } catch (e) {
-            this.showToast('ProductInfo JSON 无效！', 'danger');
-            return;
-          }
-
-          if (!this.serial.exp_date) {
-            this.showToast('请选择过期日期', 'warning');
-            return;
-          }
-
+          try { parsed = JSON.parse(this.productInfoText); }
+          catch { this.showToast('ProductInfo JSON 无效！', 'danger'); return; }
+          if (!this.serial.exp_date) { this.showToast('请选择过期日期', 'warning'); return; }
           const [year, month, day] = this.serial.exp_date.split('-').map(Number);
           const payload = {
             product_info: parsed,
             serial_info: {
-              user_name: this.serial.user_name || "",
-              email: this.serial.email || "",
-              hwid: this.serial.hwid || "",
-              exp_year: year,
-              exp_month: month,
-              exp_day: day
+              user_name: this.serial.user_name || '', email: this.serial.email || '',
+              hwid: this.serial.hwid || '', exp_year: year, exp_month: month, exp_day: day
             },
             ignore_network_adapters: this.ignoreAdapters
           };
-
+          this.generatingSerial = true;
+          this.serialOutput = '';
           try {
             const res = await fetch('/api/v1/gen_serial_number', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
             if (!res.ok) throw new Error('网络请求失败');
-            const data = await res.json();
-            this.serialOutput = JSON.stringify(data, null, 2);
-            this.showToast('序列号生成成功', 'success');
+            this.serialOutput = JSON.stringify(await res.json(), null, 2);
+            this.showToast('序列号生成成功');
           } catch (error) {
             console.error('生成序列号失败:', error);
             this.showToast('生成序列号失败', 'danger');
-          }
+          } finally { this.generatingSerial = false; }
         },
 
         async packApp(name) {
+          this.packingApp = name;
           try {
-            const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, {
-              method: 'POST',
-            });
-            // 确保返回成功
+            const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, { method: 'POST' });
             if (!res.ok) throw new Error('下载失败');
-            // 提取文件名（从 Content-Disposition）
-            const disposition = res.headers.get('Content-Disposition');
-            const filename = getFileNameFromDisposition(disposition) || `${name}.zip`;
-            // 获取 Blob 数据
-            const blob = await res.blob();
-            // 创建 URL 并触发下载
-            const url = window.URL.createObjectURL(blob);
+            const filename = getFileNameFromDisposition(res.headers.get('Content-Disposition')) || `${name}.zip`;
+            const url = URL.createObjectURL(await res.blob());
             const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            this.showToast(`应用 ${name} 加壳成功，开始下载`, 'success');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            this.showToast(`应用 ${name} 加壳成功，开始下载`);
           } catch (error) {
             console.error('加壳失败:', error);
             this.showToast('应用加壳失败', 'danger');
-          }
+          } finally { this.packingApp = ''; }
         },
 
         async uploadApp() {
           const file = this.$refs.appFile.files[0];
           if (!file || !this.newAppName.trim()) {
-            this.showToast('请填写 App 名称并选择文件', 'warning');
-            return;
+            this.showToast('请填写应用名称并选择文件', 'warning'); return;
           }
-
           let url = `/api/v1/app/add?name=${encodeURIComponent(this.newAppName.trim())}`;
-          if (this.newAppPath.trim()) {
-            url += `&vmp_file_path=${encodeURIComponent(this.newAppPath.trim())}`;
-          }
-
+          if (this.newAppPath.trim()) url += `&vmp_file_path=${encodeURIComponent(this.newAppPath.trim())}`;
+          this.uploading = true;
           try {
-            const res = await fetch(url, {
-              method: 'POST',
-              body: file
-            });
-
-            if (res.ok) {
-              this.showToast(`应用 ${this.newAppName} 上传成功`, 'success');
-              this.init();
-              this.newAppName = '';
-              this.newAppPath = '';
-              this.$refs.appFile.value = '';
-            } else {
-              throw new Error('上传失败');
-            }
+            const res = await fetch(url, { method: 'POST', body: file });
+            if (!res.ok) throw new Error('上传失败');
+            this.showToast(`应用 ${this.newAppName} 上传成功`);
+            this.newAppName = ''; this.newAppPath = ''; this.$refs.appFile.value = '';
+            await this.init();
           } catch (error) {
             console.error('上传失败:', error);
             this.showToast('应用上传失败', 'danger');
-          }
+          } finally { this.uploading = false; }
         },
-        copySerial() {
+
+        async copySerial() {
           try {
-            const parsed = JSON.parse(this.serialOutput);
-            const serial = parsed.serial_number || '';
-            if (!serial) {
-              this.showToast('⚠️ 未找到 serial_number 字段', 'warning');
-              return;
-            }
-            navigator.clipboard.writeText(serial).then(() => {
-              this.showToast('✅ 已复制序列号', 'success');
-            }).catch(() => {
-              this.showToast('⚠️ 无法访问剪贴板', 'danger');
-            });
-          } catch (e) {
-            this.showToast('⚠️ 输出格式无效', 'warning');
+            const serial = JSON.parse(this.serialOutput).serial_number;
+            if (!serial) { this.showToast('未找到 serial_number 字段', 'warning'); return; }
+            await navigator.clipboard.writeText(serial);
+            this.showToast('已复制序列号');
+          } catch (error) {
+            this.showToast('无法复制序列号', 'danger');
           }
         },
+
         showToast(message, type = 'success') {
-          const toastEl = document.getElementById('toastBox');
-          const toastMsg = document.getElementById('toastMessage');
-          const icon = toastEl.querySelector('svg');
-          const container = toastEl.querySelector('div');
-          
-          // 设置消息内容
-          toastMsg.textContent = message;
-          
-          // 设置类型样式
-          container.className = '';
-          if (type === 'success') {
-            container.className = 'bg-success text-white rounded-lg shadow-lg p-4 max-w-xs';
-            icon.innerHTML = '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />';
-          } else if (type === 'danger') {
-            container.className = 'bg-danger text-white rounded-lg shadow-lg p-4 max-w-xs';
-            icon.innerHTML = '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />';
-          } else if (type === 'warning') {
-            container.className = 'bg-warning text-white rounded-lg shadow-lg p-4 max-w-xs';
-            icon.innerHTML = '<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />';
-          }
-          
-          // 显示toast
-          toastEl.classList.remove('translate-x-full', 'opacity-0');
-          
-          // 3秒后自动隐藏
-          setTimeout(() => {
-            toastEl.classList.add('translate-x-full', 'opacity-0');
-          }, 3000);
+          const box = document.getElementById('toastBox');
+          document.getElementById('toastMessage').textContent = message;
+          document.getElementById('toastSymbol').textContent = type === 'success' ? '✓' : type === 'danger' ? '×' : '!';
+          box.dataset.type = type;
+          box.classList.remove('hidden');
+          clearTimeout(this.toastTimer);
+          this.toastTimer = setTimeout(() => box.classList.add('hidden'), 4000);
         }
-      }
-    }
-  </script>
-</body>
-</html>
-
-  <script>
-    function getFileNameFromDispositionOld(header) {
-      if (!header) return null;
-      const match = decodeURIComponent(header).match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
-      if (match && match[1]) {
-        try {
-          //return decodeURIComponent(match[1].replace(/["']/g, ''));
-          return match1[1]
-        } catch (e) {
-          return match[1];
-        }
-      }
-      return null;
-    }
-    function getFileNameFromDisposition(header) {
-      if (!header) return null;
-
-      const str = decodeURIComponent(header);
-      const prefix = "filename*=UTF-8''";
-      const start = str.indexOf(prefix);
-      if (start === -1) return null;
-
-      // 从 prefix 后面开始截取
-      let rest = str.substring(start + prefix.length);
-
-      // 截取到分号或结尾
-      const end = rest.indexOf(';');
-      if (end !== -1) {
-        rest = rest.substring(0, end);
-      }
-
-      // 去除可能的引号和空白
-      //return rest.trim().replace(/^["']|["']$/g, '');
-      return rest;
-    }
-
-    function vmpxApp() {
-      return {
-        apps: [],
-        keySize: 2048,
-        productInfoText: '',
-        serial: {
-          user_name: '',
-          email: '',
-          hwid: '',
-          exp_date: ''
-        },
-        ignoreAdapters: false,
-        serialOutput: '',
-        newAppName: '',
-        newAppPath: '',
-
-        async init() {
-          try {
-            const res = await fetch('/api/v1/app/list');
-            if (!res.ok) throw new Error('网络请求失败');
-            this.apps = await res.json();
-            this.showToast('应用列表已更新', 'success');
-          } catch (error) {
-            console.error('初始化失败:', error);
-            this.showToast('加载应用列表失败', 'danger');
-          }
-        },
-
-        async generateRandomProductInfo() {
-          try {
-            const res = await fetch('/api/v1/gen_random_product_info', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ key_size: this.keySize })
-            });
-            if (!res.ok) throw new Error('网络请求失败');
-            const data = await res.json();
-            this.productInfoText = JSON.stringify(data, null, 2);
-            this.showToast('已生成随机 ProductInfo', 'success');
-          } catch (error) {
-            console.error('生成失败:', error);
-            this.showToast('生成 ProductInfo 失败', 'danger');
-          }
-        },
-
-        async loadProductInfo(name) {
-          try {
-            const res = await fetch(`/api/v1/app/product_info?name=${encodeURIComponent(name)}`);
-            if (!res.ok) throw new Error('网络请求失败');
-            const data = await res.json();
-            this.productInfoText = JSON.stringify(data, null, 2);
-            this.showToast(`已加载 ${name} 的 ProductInfo`, 'success');
-          } catch (error) {
-            console.error('加载失败:', error);
-            this.showToast('加载 ProductInfo 失败', 'danger');
-          }
-        },
-
-        async generateSerial() {
-          let parsed;
-          try {
-            parsed = JSON.parse(this.productInfoText);
-          } catch (e) {
-            this.showToast('ProductInfo JSON 无效！', 'danger');
-            return;
-          }
-
-          if (!this.serial.exp_date) {
-            this.showToast('请选择过期日期', 'warning');
-            return;
-          }
-
-          const [year, month, day] = this.serial.exp_date.split('-').map(Number);
-          const payload = {
-            product_info: parsed,
-            serial_info: {
-              user_name: this.serial.user_name || "",
-              email: this.serial.email || "",
-              hwid: this.serial.hwid || "",
-              exp_year: year,
-              exp_month: month,
-              exp_day: day
-            },
-            ignore_network_adapters: this.ignoreAdapters
-          };
-
-          try {
-            const res = await fetch('/api/v1/gen_serial_number', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error('网络请求失败');
-            const data = await res.json();
-            this.serialOutput = JSON.stringify(data, null, 2);
-            this.showToast('序列号生成成功', 'success');
-          } catch (error) {
-            console.error('生成序列号失败:', error);
-            this.showToast('生成序列号失败', 'danger');
-          }
-        },
-
-        async packApp(name) {
-          try {
-            const res = await fetch(`/api/v1/app/pack?name=${encodeURIComponent(name)}`, {
-              method: 'POST',
-            });
-            // 确保返回成功
-            if (!res.ok) throw new Error('下载失败');
-            // 提取文件名（从 Content-Disposition）
-            const disposition = res.headers.get('Content-Disposition');
-            const filename = getFileNameFromDisposition(disposition) || `${name}.zip`;
-            // 获取 Blob 数据
-            const blob = await res.blob();
-            // 创建 URL 并触发下载
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            this.showToast(`应用 ${name} 加壳成功，开始下载`, 'success');
-          } catch (error) {
-            console.error('加壳失败:', error);
-            this.showToast('应用加壳失败', 'danger');
-          }
-        },
-
-        async uploadApp() {
-          const file = this.$refs.appFile.files[0];
-          if (!file || !this.newAppName.trim()) {
-            this.showToast('请填写 App 名称并选择文件', 'warning');
-            return;
-          }
-
-          let url = `/api/v1/app/add?name=${encodeURIComponent(this.newAppName.trim())}`;
-          if (this.newAppPath.trim()) {
-            url += `&vmp_file_path=${encodeURIComponent(this.newAppPath.trim())}`;
-          }
-
-          try {
-            const res = await fetch(url, {
-              method: 'POST',
-              body: file
-            });
-
-            if (res.ok) {
-              this.showToast(`应用 ${this.newAppName} 上传成功`, 'success');
-              this.init();
-              this.newAppName = '';
-              this.newAppPath = '';
-              this.$refs.appFile.value = '';
-            } else {
-              throw new Error('上传失败');
-            }
-          } catch (error) {
-            console.error('上传失败:', error);
-            this.showToast('应用上传失败', 'danger');
-          }
-        },
-        copySerial() {
-          try {
-            const parsed = JSON.parse(this.serialOutput);
-            const serial = parsed.serial_number || '';
-            if (!serial) {
-              this.showToast('⚠️ 未找到 serial_number 字段', 'warning');
-              return;
-            }
-            navigator.clipboard.writeText(serial).then(() => {
-              this.showToast('✅ 已复制序列号', 'success');
-            }).catch(() => {
-              this.showToast('⚠️ 无法访问剪贴板', 'danger');
-            });
-          } catch (e) {
-            this.showToast('⚠️ 输出格式无效', 'warning');
-          }
-        },
-        showToast(message, type = 'success') {
-          const toastEl = document.getElementById('toastBox');
-          const toastMsg = document.getElementById('toastMessage');
-          const icon = toastEl.querySelector('svg');
-          const container = toastEl.querySelector('div');
-          
-          // 设置消息内容
-          toastMsg.textContent = message;
-          
-          // 设置类型样式
-          container.className = '';
-          if (type === 'success') {
-            container.className = 'bg-success text-white rounded-lg shadow-lg p-4 max-w-xs';
-            icon.innerHTML = '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />';
-          } else if (type === 'danger') {
-            container.className = 'bg-danger text-white rounded-lg shadow-lg p-4 max-w-xs';
-            icon.innerHTML = '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />';
-          } else if (type === 'warning') {
-            container.className = 'bg-warning text-white rounded-lg shadow-lg p-4 max-w-xs';
-            icon.innerHTML = '<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />';
-          }
-          
-          // 显示toast
-          toastEl.classList.remove('translate-x-full', 'opacity-0');
-          
-          // 3秒后自动隐藏
-          setTimeout(() => {
-            toastEl.classList.add('translate-x-full', 'opacity-0');
-          }, 3000);
-        }
-      }
+      };
     }
   </script>
 </body>
