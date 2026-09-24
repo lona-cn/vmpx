@@ -1,5 +1,5 @@
 function SetupProject()
-	local project_semver = "0.0.1"
+	local project_semver = "0.0.2"
 	local project_name = nil
 	if project_name == nil then
 		project_name = path.basename(os.projectdir())
