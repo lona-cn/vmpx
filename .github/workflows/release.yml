@@ -27,13 +27,20 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: '3.1.1'
-          package-cache: true
-          package-cache-key: windows-x64-msvc
+          build-cache: true
+          build-cache-path: build/.build_cache
+          build-cache-key: windows-x64-msvc-release-vs2026
+
+      - name: Cache XMake dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~\AppData\Local\.xmake\packages
+          key: xmake-3.1.1-${{ runner.os }}-x64-msvc-mt-${{ hashFiles('**/xmake.lua') }}
 
       - name: Build release server
         shell: cmd
         run: |
-          xmake f -c -p windows -a x64 -m release --runtimes=MT -o build --policies=package.precompiled:n,package.install_only -vy
+          xmake f -c -p windows -a x64 -m release --runtimes=MT -o build --policies=package.precompiled:n,package.install_only,build.ccache:y -vy
           if errorlevel 1 exit /b %errorlevel%
           xmake build -vDy vmpx_server
 
