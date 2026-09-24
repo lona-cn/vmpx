@@ -2,7 +2,7 @@ local target_name = "common"
 local kind = "object"
 local group_name = "runtime"
 local pkgs = { "tobiaslocker_base64", "cryptopp", "VMProtect", "yalantinglibs", "utfcpp",
-    "magic_enum", "pugixml", "boost", "uchardet" }
+    "magic_enum", "pugixml", "boost", "uchardet", "libzip" }
 local deps = {}
 local syslinks = {}
 local function callback()

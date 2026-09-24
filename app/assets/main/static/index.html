@@ -140,8 +140,8 @@
     .footer b { color: var(--signal); font-weight: 600; }
     .toast { position: fixed; z-index: 20; right: 24px; bottom: 24px; width: min(380px, calc(100vw - 32px)); display: flex; align-items: flex-start; gap: 13px; padding: 17px; background: #252c22; border: 1px solid var(--success); box-shadow: 0 16px 48px #0009; transition: transform .25s ease, opacity .25s ease; }
     .toast.hidden { transform: translateY(12px); opacity: 0; pointer-events: none; }
-    .toast[data-type="danger"] { border-color: var(--danger); }
-    .toast[data-type="warning"] { border-color: var(--signal); }
+    .toast[data-type="danger"] { background: #2c2423; border-color: var(--danger); }
+    .toast[data-type="warning"] { background: #2a291e; border-color: var(--signal); }
     .toast-symbol { color: var(--success); font: 700 20px/1 var(--display); }
     .toast[data-type="danger"] .toast-symbol { color: var(--danger); }
     .toast[data-type="warning"] .toast-symbol { color: var(--signal); }
@@ -211,7 +211,7 @@
         <span><span class="brand-name">VMPX</span><span class="brand-sub">CONTROL SYSTEM / 控制台</span></span>
       </a>
       <nav class="topnav" aria-label="控制台导航">
-        <a href="#applications">应用目录</a><a href="#product">产品信息</a><a href="#serial">序列号</a><a href="#upload">上传部署</a>
+        <a href="#applications">应用目录</a><a href="#product">产品信息</a><a href="#serial">序列号</a><a href="#activation">激活码</a><a href="#upload">上传部署</a>
       </nav>
       <div class="top-status" role="status"><span class="status-dot" :class="{'ok': serviceState === 'online', 'error': serviceState === 'offline'}"></span><span x-text="serviceState === 'online' ? 'API 已连接' : serviceState === 'offline' ? 'API 连接失败' : '正在连接 API'"></span></div>
     </div>
@@ -254,7 +254,7 @@
           <p class="section-note">从应用目录载入配置，或直接粘贴 ProductInfo JSON。</p>
           <div class="field"><label for="productInfo">PRODUCTINFO / JSON 编辑器</label><div class="editor-wrap"><textarea id="productInfo" class="control" x-model="productInfoText" spellcheck="false" placeholder="{&#10;  &quot;product_name&quot;: &quot;...&quot;&#10;}" aria-describedby="editor-meta"></textarea></div></div>
           <div class="editor-meta" id="editor-meta"><span x-text="selectedApp ? 'SOURCE / ' + selectedApp : 'SOURCE / 手动输入或随机生成'"></span><span x-text="productInfoText.trim() ? '● 已填写' : '○ 等待输入'"></span></div>
-          <div class="editor-actions"><div class="field"><label for="keySize">RSA 密钥位数</label><input id="keySize" class="control mono" type="number" x-model.number="keySize" min="1024" step="1024"></div><button class="action action-primary" type="button" @click="generateRandomProductInfo()" :disabled="generatingProduct"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 1.5 11.8 8.2 18.5 10l-6.7 1.8L10 18.5l-1.8-6.7L1.5 10l6.7-1.8L10 1.5Z" stroke="currentColor" stroke-width="1.6"/></svg><span x-text="generatingProduct ? '正在生成…' : '随机生成产品信息'"></span></button></div>
+          <div class="editor-actions"><div class="field"><label for="keySize">RSA 密钥位数</label><input id="keySize" class="control mono" type="number" x-model.number="keySize" min="1024" max="4096" step="1024"></div><button class="action action-primary" type="button" @click="generateRandomProductInfo()" :disabled="generatingProduct"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 1.5 11.8 8.2 18.5 10l-6.7 1.8L10 18.5l-1.8-6.7L1.5 10l6.7-1.8L10 1.5Z" stroke="currentColor" stroke-width="1.6"/></svg><span x-text="generatingProduct ? '正在生成…' : '随机生成产品信息'"></span></button></div>
         </div>
       </section>
 
@@ -262,7 +262,7 @@
         <div class="panel-header"><div><span class="section-no">03 / LICENSING</span><h2 id="serial-title">授权序列号 <small>SERIAL GENERATOR</small></h2></div></div>
         <div class="panel-content">
           <form @submit.prevent="generateSerial()">
-            <p class="section-note">填写授权参数，使用当前产品信息签发序列号。</p>
+            <p class="section-note">填写授权参数生成序列号，或生成可按 UTC 日期每日换取序列号的激活码。</p>
             <div class="serial-fields">
               <div class="field"><label for="userName">用户名 <span class="optional">/ 可选</span></label><input id="userName" class="control" x-model="serial.user_name" placeholder="授权用户名" autocomplete="off"></div>
               <div class="field"><label for="email">邮箱 <span class="optional">/ 可选</span></label><input id="email" class="control" x-model="serial.email" type="email" placeholder="name@example.com" autocomplete="off"></div>
@@ -271,8 +271,10 @@
             </div>
             <label class="check-row"><input type="checkbox" x-model="ignoreAdapters"><span>忽略网卡信息</span></label>
             <button class="action action-primary serial-submit" type="submit" :disabled="generatingSerial"><span x-text="generatingSerial ? '正在生成…' : '生成授权序列号'"></span><span aria-hidden="true">↗</span></button>
+            <button class="action action-quiet serial-submit" type="button" @click="generateActivationCode()" :disabled="generatingActivation"><span x-text="generatingActivation ? '正在生成…' : '生成每日激活码'"></span><span aria-hidden="true">↗</span></button>
           </form>
           <div class="output-block"><div class="output-heading"><strong>OUTPUT / 生成结果</strong><span x-text="serialOutput ? '● READY' : '○ STANDBY'"></span></div><pre x-text="serialOutput || '等待生成序列号…'" aria-live="polite"></pre><button class="action action-quiet" type="button" @click="copySerial()" :disabled="!serialOutput">复制序列号 ↗</button></div>
+          <div class="output-block" id="activation"><div class="output-heading"><strong>ACTIVATION CODE / 每日激活码</strong><span x-text="activationCode ? '● READY' : '○ STANDBY'"></span></div><pre x-text="activationCode || '等待生成激活码…'" aria-live="polite"></pre><button class="action action-quiet" type="button" @click="copyActivationCode()" :disabled="!activationCode">复制激活码 ↗</button></div>
         </div>
       </section>
     </div>
@@ -294,10 +296,39 @@
   <script>
     function getFileNameFromDisposition(header) {
       if (!header) return null;
-      const match = header.match(/filename\*=UTF-8''([^;]+)/i);
-      if (!match) return null;
-      try { return decodeURIComponent(match[1]); }
-      catch { return null; }
+      let fallback = null;
+      let extended = null;
+      let start = header.indexOf(';');
+      while (start !== -1) {
+        let end = start + 1;
+        let quoted = false;
+        for (; end < header.length; end++) {
+          if (header[end] === '\\' && quoted && end + 1 < header.length) { end++; continue; }
+          if (header[end] === '"') quoted = !quoted;
+          else if (header[end] === ';' && !quoted) break;
+        }
+        const parameter = header.slice(start + 1, end);
+        const equals = parameter.indexOf('=');
+        if (equals !== -1) {
+          const key = parameter.slice(0, equals).trim().toLowerCase();
+          const value = parameter.slice(equals + 1).trim();
+          if (key === 'filename*' && extended === null) {
+            const match = /^UTF-8'[^']*'((?:[A-Za-z0-9!#$&+.^_`|~-]|%[0-9a-f]{2})*)$/i.exec(value);
+            if (match) {
+              try { extended = decodeURIComponent(match[1]); }
+              catch { /* Invalid UTF-8: use the plain filename if available. */ }
+            }
+          } else if (key === 'filename' && fallback === null) {
+            if (value.startsWith('"') && value.endsWith('"')) {
+              fallback = value.slice(1, -1).replace(/\\(.)/g, '$1');
+            } else if (!value.includes('"')) {
+              fallback = value;
+            }
+          }
+        }
+        start = end < header.length ? end : -1;
+      }
+      return extended || fallback || null;
     }
 
     function vmpxApp() {
@@ -309,6 +340,7 @@
         loadingProduct: false,
         generatingProduct: false,
         generatingSerial: false,
+        generatingActivation: false,
         packingApp: '',
         uploading: false,
         toastTimer: null,
@@ -317,6 +349,7 @@
         serial: { user_name: '', email: '', hwid: '', exp_date: '' },
         ignoreAdapters: false,
         serialOutput: '',
+        activationCode: '',
         newAppName: '',
         newAppPath: '',
 
@@ -348,6 +381,7 @@
             this.productInfoText = JSON.stringify(await res.json(), null, 2);
             this.selectedApp = '';
             this.serialOutput = '';
+            this.activationCode = '';
             this.showToast('已生成随机 ProductInfo');
           } catch (error) {
             console.error('生成失败:', error);
@@ -363,6 +397,7 @@
             this.productInfoText = JSON.stringify(await res.json(), null, 2);
             this.selectedApp = name;
             this.serialOutput = '';
+            this.activationCode = '';
             this.showToast(`已加载 ${name} 的 ProductInfo`);
           } catch (error) {
             console.error('加载失败:', error);
@@ -397,6 +432,34 @@
             console.error('生成序列号失败:', error);
             this.showToast('生成序列号失败', 'danger');
           } finally { this.generatingSerial = false; }
+        },
+        async generateActivationCode() {
+          let productInfo;
+          try { productInfo = JSON.parse(this.productInfoText); }
+          catch { this.showToast('ProductInfo JSON 无效！', 'danger'); return; }
+          if (!this.serial.exp_date) { this.showToast('请选择激活码到期日期', 'warning'); return; }
+          const [year, month, day] = this.serial.exp_date.split('-').map(Number);
+          this.generatingActivation = true;
+          this.activationCode = '';
+          try {
+            const res = await fetch('/api/v1/app/activation_codes', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product_info: productInfo,
+                serial_info: {
+                  user_name: this.serial.user_name || '', email: this.serial.email || '',
+                  exp_year: year, exp_month: month, exp_day: day
+                }
+              })
+            });
+            if (!res.ok) throw new Error('激活码生成失败');
+            const generated = await res.json();
+            this.activationCode = generated.activation_code;
+            this.showToast('每日激活码生成成功');
+          } catch (error) {
+            console.error('生成激活码失败:', error);
+            this.showToast('激活码生成失败', 'danger');
+          } finally { this.generatingActivation = false; }
         },
 
         async packApp(name) {
@@ -445,6 +508,15 @@
             this.showToast('已复制序列号');
           } catch (error) {
             this.showToast('无法复制序列号', 'danger');
+          }
+        },
+        async copyActivationCode() {
+          try {
+            if (!this.activationCode) { this.showToast('没有可复制的激活码', 'warning'); return; }
+            await navigator.clipboard.writeText(this.activationCode);
+            this.showToast('已复制激活码');
+          } catch (error) {
+            this.showToast('无法复制激活码', 'danger');
           }
         },
 

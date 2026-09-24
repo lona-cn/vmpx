@@ -20,6 +20,9 @@ paths:
               properties:
                 key_size:
                   type: integer
+                  minimum: 1024
+                  maximum: 4096
+                  multipleOf: 1024
               required:
                 - key_size
             example:
@@ -172,6 +175,134 @@ paths:
                 expired_day: 14
           headers: {}
       security: []
+  /api/v1/app/activation_codes:
+    post:
+      summary: Create a daily-serial activation code.
+      description: Creates a reusable bearer code that stores the ProductInfo and license identity until the requested UTC expiration date. Protect this endpoint as an administrator operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_info, serial_info]
+              properties:
+                product_info:
+                  type: object
+                  required: [key_size, modulus, public_exponent, private_exponent, product_code]
+                  properties:
+                    key_size: { type: integer }
+                    modulus: { type: string }
+                    public_exponent: { type: string }
+                    private_exponent: { type: string }
+                    product_code: { type: string }
+                serial_info:
+                  type: object
+                  required: [exp_year, exp_month, exp_day]
+                  properties:
+                    user_name: { type: string }
+                    email: { type: string }
+                    exp_year: { type: integer }
+                    exp_month: { type: integer }
+                    exp_day: { type: integer }
+      responses:
+        '201':
+          description: Activation code created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [activation_code, exp_year, exp_month, exp_day]
+                properties:
+                  activation_code: { type: string }
+                  exp_year: { type: integer }
+                  exp_month: { type: integer }
+                  exp_day: { type: integer }
+        '400':
+          description: Invalid request or ProductInfo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '500':
+          description: Activation code could not be persisted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+      security: []
+  /api/v1/app/activate:
+    post:
+      summary: Exchange an activation code and HWID for today's serial number.
+      description: Returns a serial bound to the submitted HWID and valid for the current UTC date, subject to the activation code's license expiration. Clients should refresh once each UTC day and call VMProtectSetSerialNumber with the result.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activation_code, hwid]
+              properties:
+                activation_code: { type: string }
+                hwid:
+                  type: string
+                  description: Base64-encoded VMProtect hardware ID.
+      responses:
+        '200':
+          description: Current-day serial number.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serial_number, expired_year, expired_month, expired_day]
+                properties:
+                  serial_number: { type: string }
+                  expired_year: { type: integer }
+                  expired_month: { type: integer }
+                  expired_day: { type: integer }
+        '400':
+          description: Invalid request or HWID.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '404':
+          description: Activation code not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '410':
+          description: Activation code has expired.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '500':
+          description: Serial number generation failed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+      security: []
   /api/v1/app/list:
     get:
       summary: 列出所有app
@@ -241,13 +372,55 @@ paths:
             type: string
       responses:
         '200':
-          description: ''
+          description: Packed application ZIP archive.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Attachment filename for the packed application.
+              schema:
+                type: string
+        '400':
+          description: Missing name or application not found.
           content:
             application/json:
               schema:
                 type: object
-                properties: {}
-          headers: {}
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        '500':
+          description: Application packing failed or an unexpected error occurred.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        '503':
+          description: Pack request limit reached; retry later.
+          headers:
+            Retry-After:
+              description: Minimum seconds before retrying.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
       security: []
   /api/v1/app/product_info:
     get:

@@ -1,5 +1,7 @@
 ﻿#include "../VMPX.h"
 
+#include <stdexcept>
+
 #include <magic_enum.hpp>
 #include <ylt/struct_json/json_reader.h>
 #include <ylt/struct_json/json_writer.h>
@@ -10,7 +12,6 @@
 #include <pugixml.hpp>
 #include <boost/process.hpp>
 #include <boost/asio.hpp>
-#include <boost/locale.hpp>
 
 #include "Utils.h"
 
@@ -49,16 +50,44 @@ namespace
     {
         return {vec.data(), vec.size()};
     }
+
+    bool ResolveContainedPath(const std::filesystem::path& root, std::string_view value,
+                              std::filesystem::path& result)
+    {
+        if (value.empty()) return false;
+        std::string normalized{value};
+        std::replace(normalized.begin(), normalized.end(), '\\', '/');
+        if (normalized.find(':') != std::string::npos) return false;
+        std::filesystem::path relative = vmpx::PathFromUtf8(normalized);
+        if (relative.is_absolute() || relative.has_root_name() || relative.has_root_directory()) return false;
+        for (const auto& component : relative)
+            if (component == std::filesystem::path{"."} || component == std::filesystem::path{".."})
+                return false;
+        std::error_code ec;
+        auto canonical_root = std::filesystem::weakly_canonical(root, ec);
+        if (ec) return false;
+        auto candidate = (canonical_root / relative).lexically_normal();
+        auto canonical_candidate = std::filesystem::weakly_canonical(candidate, ec);
+        if (ec) return false;
+        auto within = canonical_candidate.lexically_relative(canonical_root);
+        if (within.empty() || within.is_absolute() || *within.begin() == std::filesystem::path{".."})
+            return false;
+        result = std::move(canonical_candidate);
+        return true;
+    }
+
 }
 
 static std::expected<std::string, std::string> GenerateSerialNumber(
     const vmpx::ProductInfo& pi,
     const vmpx::SerialInfo& si);
 
-vmpx::HWID vmpx::HWID::FromData(std::span<uint8_t> bytes) noexcept
+std::expected<vmpx::HWID, std::string> vmpx::HWID::FromData(std::span<const uint8_t> bytes)
 {
+    if (bytes.size() < STRIDE * 3 || bytes.size() % STRIDE != 0)
+        return std::unexpected{"decoded HWID must contain at least 12 bytes in 4-byte groups"};
     auto begin = bytes.begin();
-    HWID hwid;
+    HWID hwid{};
     std::copy(begin, begin + STRIDE, hwid.cpu.begin());
     std::copy(begin + STRIDE, begin + STRIDE * 2, hwid.host.begin());
     std::copy(begin + STRIDE * 2, begin + STRIDE * 3, hwid.hdd.begin());
@@ -81,9 +110,9 @@ std::expected<vmpx::HWID, std::string> vmpx::HWID::FromBase64(std::string_view s
     try
     {
         auto vec = B64DecToVec<uint8_t>(reinterpret_cast<const byte*>(str.data()), str.size());
-        return FromData<>(std::span{vec});
+        return FromData(std::span<const uint8_t>{vec});
     }
-    catch (std::runtime_error& e)
+    catch (const std::exception& e)
     {
         return std::unexpected(e.what());
     }
@@ -187,15 +216,22 @@ std::string vmpx::ProductInfoEntity::ToJson() noexcept
     return ss;
 }
 
-vmpx::ProductInfo vmpx::ProductInfoEntity::ToProductInfo() const noexcept
+std::expected<vmpx::ProductInfo, std::string> vmpx::ProductInfoEntity::ToProductInfo() const
 {
-    ProductInfo pi;
-    pi.key_size = key_size;
-    pi.modulus = base64::decode_into<std::vector<byte>>(modulus);
-    pi.public_exponent = base64::decode_into<std::vector<byte>>(public_exponent);
-    pi.private_exponent = base64::decode_into<std::vector<byte>>(private_exponent);
-    pi.product_code = base64::decode_into<std::vector<byte>>(product_code);
-    return pi;
+    try
+    {
+        ProductInfo pi;
+        pi.key_size = key_size;
+        pi.modulus = base64::decode_into<std::vector<byte>>(modulus);
+        pi.public_exponent = base64::decode_into<std::vector<byte>>(public_exponent);
+        pi.private_exponent = base64::decode_into<std::vector<byte>>(private_exponent);
+        pi.product_code = base64::decode_into<std::vector<byte>>(product_code);
+        return pi;
+    }
+    catch (const std::exception& e)
+    {
+        return std::unexpected(e.what());
+    }
 }
 
 std::unique_ptr<VMProtectSerialNumberInfo> vmpx::SerialInfo::ToVMP() const noexcept
@@ -241,8 +277,10 @@ std::expected<vmpx::SerialNumberInfo, std::string> vmpx::GenSerialNumber(
     return std::unexpected{std::string(magic_enum::enum_name(res))};
 }
 
-vmpx::ProductInfo vmpx::GenRandomProductInfo(size_t key_size, bool random_public_exponent) noexcept
+vmpx::ProductInfo vmpx::GenRandomProductInfo(size_t key_size, bool random_public_exponent)
 {
+    if (key_size < 1024 || key_size > 4096 || key_size % 1024 != 0)
+        throw std::invalid_argument{"RSA key size must be 1024, 2048, 3072, or 4096 bits"};
     using namespace CryptoPP;
     CryptoPP::AutoSeededRandomPool rng{};
     InvertibleRSAFunction privKeyParams;
@@ -298,27 +336,36 @@ std::expected<std::filesystem::path, std::string> vmpx::PackApp(const std::files
         return std::unexpected(std::string(error_msg));
     }
     auto input_file_name = input_file_name_attr.as_string();
-    auto app_file_path = std::filesystem::path{vmp_file_path.parent_path().string() + "/" + input_file_name};
-    auto app_file_path_name = app_file_path.string();
-    auto output_file_name_attr = protection_node.attribute("OutputFileName");
+    std::filesystem::path app_file_path;
+    if (!ResolveContainedPath(vmp_file_path.parent_path(), input_file_name, app_file_path) ||
+        !std::filesystem::is_regular_file(app_file_path))
+        return std::unexpected{"input file path is invalid"};
     auto output_dir_tmp = output_dir.empty() ? app_file_path.parent_path() : output_dir;
-    std::string output_file_name = output_file_name_attr.empty()
-                                       ? output_dir_tmp.string() + "/" + app_file_path.stem().string() + "-vmp" +
-                                       app_file_path.extension().string()
-                                       : output_dir_tmp.string() + "/" + output_file_name_attr.as_string();
+    auto output_file_name_attr = protection_node.attribute("OutputFileName");
+    auto default_output_name = vmpx::PathToUtf8(app_file_path.stem()) + "-vmp" +
+        vmpx::PathToUtf8(app_file_path.extension());
+    auto output_name = output_file_name_attr.empty() ? default_output_name : output_file_name_attr.as_string();
+    if (std::string_view{output_name}.find_first_of("/\\") != std::string_view::npos)
+        return std::unexpected{"output file name must be a single file name"};
+    std::filesystem::path output_path;
+    if (!ResolveContainedPath(output_dir_tmp, output_name, output_path))
+        return std::unexpected{"output file path is invalid"};
+    auto output_file_arg = vmpx::PathToUtf8(output_path);
+    auto vmp_file_arg = vmpx::PathToUtf8(vmp_file_path);
+    auto process_executable =
+        boost::process::v2::filesystem::path{vmp_console_app_path.native()};
     boost::asio::io_context ctx;
     boost::asio::readable_pipe rp{ctx};
-    output_file_name = boost::locale::conv::from_utf(output_file_name, "GBK");
     auto proc = boost::process::process{
-        ctx, vmp_console_app_path.string(),
-        {boost::locale::conv::to_utf<char>(vmp_file_path.string(), "GBK"), output_file_name},
+        ctx, process_executable,
+        {vmp_file_arg, output_file_arg},
         boost::process::process_stdio{{}, rp, {}}
     };
     std::string sub_proc_stdout_buf;
     sub_proc_stdout_buf.reserve(4096);
     boost::system::error_code ec;
     boost::asio::read(rp, boost::asio::dynamic_buffer(sub_proc_stdout_buf), ec);
-    if (ec && ec.value() != 109)
+    if (ec && ec != boost::asio::error::eof && ec.value() != 109)
     {
         auto error_msg = std::format("subprocess io exception occurred:{}", ec.message());
         return std::unexpected(error_msg);
@@ -326,9 +373,9 @@ std::expected<std::filesystem::path, std::string> vmpx::PackApp(const std::files
     proc.wait();
     if (sub_proc_stdout_buf.rfind("Compilation completed") != std::string::npos)
     {
-        return std::filesystem::path(output_file_name);
+        return output_path;
     }
-    return std::unexpected(std::format("pack failed,stdout log:\n", sub_proc_stdout_buf));
+    return std::unexpected(std::format("pack failed,stdout log:\n{}", sub_proc_stdout_buf));
 }
 
 

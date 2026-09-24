@@ -19,18 +19,17 @@ namespace vmpx
         static constexpr size_t STRIDE = 4;
         using ItemType = std::array<uint8_t, STRIDE>;
 
-        ItemType cpu, host, hdd;
+        ItemType cpu{}, host{}, hdd{};
         std::vector<ItemType> network_adapters;
 
         template <typename T>
-        static HWID FromData(std::span<T> data) noexcept
+        static std::expected<HWID, std::string> FromData(std::span<T> data)
         {
-            auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(data.data()), data.size_bytes());
+            auto bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data.data()), data.size_bytes());
             return FromData(bytes);
         }
 
-        static HWID FromData(std::span<uint8_t> bytes) noexcept;
-
+        static std::expected<HWID, std::string> FromData(std::span<const uint8_t> bytes);
         static std::expected<HWID, std::string> FromBase64(std::string_view str);
 
         auto ToString() const noexcept -> std::string;
@@ -42,7 +41,7 @@ namespace vmpx
 
     struct ProductInfo
     {
-        uint32_t key_size;
+        uint32_t key_size{};
         std::vector<byte> modulus;
         std::vector<byte> public_exponent;
         std::vector<byte> private_exponent;
@@ -61,7 +60,7 @@ namespace vmpx
 
     struct ProductInfoEntity
     {
-        uint32_t key_size;
+        uint32_t key_size{};
         std::string modulus;
         std::string public_exponent;
         std::string private_exponent;
@@ -73,7 +72,7 @@ namespace vmpx
 
         std::string ToJson() noexcept;
 
-        ProductInfo ToProductInfo() const noexcept;
+        std::expected<ProductInfo, std::string> ToProductInfo() const;
     };
 
     struct WideFields
@@ -87,9 +86,9 @@ namespace vmpx
         std::string user_name;
         std::string email;
         std::string hwid;
-        int exp_year;
-        int exp_month;
-        int exp_day;
+        int exp_year{};
+        int exp_month{};
+        int exp_day{};
         std::shared_ptr<WideFields> wide_fields = std::make_shared<WideFields>();
 
         std::unique_ptr<VMProtectSerialNumberInfo> ToVMP() const noexcept;
@@ -98,16 +97,16 @@ namespace vmpx
     struct SerialNumberInfo
     {
         std::string serial_number;
-        int expired_year;
-        int expired_month;
-        int expired_day;
+        int expired_year{};
+        int expired_month{};
+        int expired_day{};
     };
 
     std::expected<SerialNumberInfo, std::string> GenSerialNumber(
         const ProductInfo& pi,
         const SerialInfo& si) noexcept;
 
-    ProductInfo GenRandomProductInfo(size_t key_size, bool random_public_exponent = false) noexcept;
+    ProductInfo GenRandomProductInfo(size_t key_size, bool random_public_exponent = false);
 
     std::expected<std::filesystem::path, std::string> PackApp(const std::filesystem::path& vmp_console_app_path,
                                                               const std::filesystem::path& vmp_file_path,

@@ -11,7 +11,6 @@ namespace vmpx
 {
     namespace app_pack
     {
-        bool UnzipToDir(const std::filesystem::path& zip_path, const std::filesystem::path& output_dir);
 
         struct AppInfo
         {
@@ -27,7 +26,7 @@ namespace vmpx
         };
 
         /**
-         * TODO：线程安全
+         * Configuration access is synchronized; packing runs without holding the service lock.
          */
         class AppPackService
         {

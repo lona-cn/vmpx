@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <utf8cpp/utf8.h>
 #include <boost/locale.hpp>
 #include <uchardet.h>
@@ -25,25 +26,33 @@ vmpx::tstring vmpx::operator ""_ts(const char* s, std::size_t len)
     std::wstring result;
 
 #if defined(_WIN32)
-    [[likely]]
+    std::u16string utf16;
+    utf8::utf8to16(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf16));
+    result.assign(utf16.begin(), utf16.end());
+#else
+    std::u32string utf32;
+    utf8::utf8to32(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf32));
+    result.assign(utf32.begin(), utf32.end());
 #endif
-    if (sizeof(wchar_t) == 2)
-    {
-        std::u16string utf16;
-        utf8::utf8to16(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf16));
-        result.assign(utf16.begin(), utf16.end());
-    }
-#if !defined(_WIN32)
-    [[likely]]
-#endif
-    else if (sizeof(wchar_t) == 4)
-    {
-        std::u32string utf32;
-        utf8::utf8to32(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf32));
-        result.assign(utf32.begin(), utf32.end());
-    }
 
     return result;
+}
+
+std::filesystem::path vmpx::PathFromUtf8(std::string_view utf8_path)
+{
+#if defined(_WIN32)
+    return std::filesystem::path{U8ToWString(utf8_path)};
+#else
+    if (!utf8::is_valid(utf8_path.begin(), utf8_path.end()))
+        throw std::invalid_argument{"filesystem path is not valid UTF-8"};
+    return std::filesystem::path{utf8_path};
+#endif
+}
+
+std::string vmpx::PathToUtf8(const std::filesystem::path& path)
+{
+    auto utf8_path = path.u8string();
+    return {reinterpret_cast<const char*>(utf8_path.data()), utf8_path.size()};
 }
 
 vmpx::tstring vmpx::ToTString(std::string_view sv)
@@ -105,22 +114,15 @@ std::vector<wchar_t> vmpx::U8ToWVec(const std::string& utf8_str)
 {
     std::vector<wchar_t> output;
 
-    if (sizeof(wchar_t) == 2)
-    {
-        std::u16string utf16;
-        utf8::utf8to16(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf16));
-        output.assign(utf16.begin(), utf16.end());
-    }
-    else if (sizeof(wchar_t) == 4)
-    {
-        std::u32string utf32;
-        utf8::utf8to32(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf32));
-        output.assign(utf32.begin(), utf32.end());
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported wchar_t size");
-    }
+#if defined(_WIN32)
+    std::u16string utf16;
+    utf8::utf8to16(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf16));
+    output.assign(utf16.begin(), utf16.end());
+#else
+    std::u32string utf32;
+    utf8::utf8to32(utf8_str.begin(), utf8_str.end(), std::back_inserter(utf32));
+    output.assign(utf32.begin(), utf32.end());
+#endif
 
     output.push_back(L'\0'); // 保留结尾的空字符
     return output;

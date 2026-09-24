@@ -7,6 +7,8 @@
 #include <vector>
 #include <boost/locale/encoding_utf.hpp>
 #include <boost/locale/util/locale_data.hpp>
+#include <string_view>
+
 
 namespace vmpx
 {
@@ -32,6 +34,9 @@ namespace vmpx
     size_t b64declen(const unsigned char* __restrict in, size_t inlen);
 
     std::wstring U8ToWString(const std::string_view utf8_str);
+
+    std::filesystem::path PathFromUtf8(std::string_view utf8_path);
+    std::string PathToUtf8(const std::filesystem::path& path);
 
     bool WriteFile(std::span<const uint8_t> data, const std::filesystem::path& path);
 

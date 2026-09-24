@@ -24,7 +24,7 @@
 
 1. **应用目录**：查看已登记应用，点击「加载信息」填入产品信息，或点击「加壳下载」获取打包结果。
 2. **产品信息**：编辑或粘贴 ProductInfo JSON，也可以设置 RSA 密钥位数并随机生成。
-3. **授权序列号**：填写到期日期及可选的用户名、邮箱、硬件 ID，按需选择「忽略网卡信息」，生成并复制序列号。
+3. **授权与每日激活**：填写授权参数生成序列号，或签发有效期内的激活码，供客户端按 UTC 日期每日换取序列号。
 4. **上传部署**：选择应用文件、填写应用名称和可选的 VMP 文件路径后上传。
 
 桌面端以多栏呈现，窄屏设备按工作区纵向排列；顶部显示 API 连接状态。
@@ -33,11 +33,11 @@
 
 ## <div align="center">🚀 特性</div>
 
-- **完整API接口**：支持产品信息随机生成、序列号生成、应用上传、加壳打包等  
-- **战术风格响应式控制台**：深色面板、状态反馈与移动端布局；由 Alpine.js 驱动，无需前端构建步骤  
-- **轻量部署**：纯 C++ 服务端，前端静态文件，适合多种部署环境  
-- **开源协议**：采用 MIT 许可证，开放自由，便于集成和扩展  
-- **平台支持**: 仅支持在windows/x64平台运行
+- **完整API接口**：支持产品信息随机生成、序列号生成、每日激活码、应用上传和加壳打包
+- **响应式控制台**：深色面板、状态反馈与移动端布局；由 Alpine.js 驱动，无需前端构建步骤
+- **轻量部署**：纯 C++ 服务端，前端静态文件；提供 Linux x86_64 + Wine + noVNC Docker 部署
+- **开源协议**：采用 MIT 许可证，开放自由，便于集成和扩展
+- **平台支持**：原生构建目标为 Windows x64；Linux 通过 Docker/Wine 运行 Windows 发布包
 
 ---
 
@@ -55,18 +55,40 @@
 
 在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；服务程序、依赖文件、配置和 Web 页面需保持原有目录结构。请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
 
+### Linux x86_64：Docker + Wine + noVNC
+
+Linux 容器运行已发布的 Windows x64 程序，不是原生 Linux 构建。VMProtect 不包含在仓库或发布包内；需单独提供有合法授权的 `VMProtect_Con.exe`。
+
+```sh
+docker build -f docker/vmpx-wine/Dockerfile -t vmpx-wine .
+docker run --rm \
+  -v /srv/vmpx/release:/opt/vmpx \
+  -p 127.0.0.1:11451:11451 \
+  -p 127.0.0.1:6080:6080 \
+  -e VMProtect_CON=/opt/vmpx/VMProtect_Con.exe \
+  vmpx-wine
+```
+
+将 Windows x64 发布压缩包解压到 `/srv/vmpx/release`；若不挂载 `VMProtect_Con.exe`，服务仍可运行但不能加壳。容器将 `/opt/vmpx/data` 用作持久化数据目录。noVNC 无密码，仅绑定宿主机回环地址；不要将 6080 端口公开到不可信网络。
+
 ## <div align="center">🧩 API 简要</div>
 
-| 接口                         | 方法 | 说明                 |
-|------------------------------|------|----------------------|
-| `/api/v1/gen_random_product_info` | POST | 生成随机 ProductInfo |
-| `/api/v1/gen_serial_number`        | POST | 根据产品信息生成序列号 |
-| `/api/v1/app/list`                 | GET  | 获取 App 列表        |
-| `/api/v1/app/add`                  | POST | 上传新 App           |
-| `/api/v1/app/pack`                 | POST | 对指定 App 进行加壳打包 |
-| `/api/v1/app/product_info`         | GET  | 获取指定 App 产品信息 |
+| 接口                                  | 方法 | 说明                              |
+|---------------------------------------|------|-----------------------------------|
+| `/api/v1/gen_random_product_info`     | POST | 生成随机 ProductInfo              |
+| `/api/v1/gen_serial_number`           | POST | 根据产品信息生成序列号            |
+| `/api/v1/app/activation_codes`        | POST | 管理端创建每日激活码              |
+| `/api/v1/app/activate`                | POST | 客户端提交激活码和 HWID，换取当日序列号 |
+| `/api/v1/app/list`                    | GET  | 获取 App 列表                     |
+| `/api/v1/app/add`                     | POST | 上传新 App                        |
+| `/api/v1/app/pack`                    | POST | 对指定 App 进行加壳打包           |
+| `/api/v1/app/product_info`            | GET  | 获取指定 App 产品信息             |
 
 详细接口定义请查看项目 OpenAPI 规范。
+
+`POST /api/v1/app/activation_codes` 是管理端操作；激活码原文只在创建时返回，服务端以 SHA-256 摘要索引记录。`data/activation_codes.yml` 会持久化对应 ProductInfo（包含私钥）、用户信息和授权到期日，必须限制数据目录的操作系统权限并纳入安全备份。服务本身没有 API 身份认证；反向代理应保护控制台及所有管理接口，只向客户开放 `/api/v1/app/activate`，并使用 HTTPS。
+
+客户端每天按 UTC 日期提交 `{ "activation_code": "...", "hwid": "<VMProtect HWID 的 Base64>" }`，收到当日序列号后调用 `VMProtectSetSerialNumber`。此仓库没有客户端程序源码；SDK 调用需集成在使用者自己的受保护应用中。
 
 ---
 
