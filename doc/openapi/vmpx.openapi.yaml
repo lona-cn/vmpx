@@ -60,6 +60,15 @@ paths:
                   BwmGuHhn8GG7CdUmWR/JDUjanqB/S4DnrQhTO1GDynNvN0erT8QIpAt3yQo6op9jDsUZtvVhHUWlAOPpCe9lLd8qshZjXx1TIJXl/XeOfmRZ8a1JmAvUPSp6xDXV5e6cohS40Sh0jRhZ6VAxb8x9RPqHXuIzL0UHVe2UiYGJzBQTM4aG0GwYL+vms2F6UZO8aZjg0KfTLxo4YZwjYD9dg62G+8/kDqW6/yoGJ+CPLOhVfmXApe4v7/8B4QYEdgt7D3tbc26KACD+SDflvqlNcLo4+M6Mymot2Mjhawvi8hH6kRBuj0kFS0XtTdoUSas77v3DfR7F+96JWfVxOeaFfQ==
                 product_code: qYtTjr+yG4k=
           headers: {}
+        '400':
+          description: Invalid JSON request or key size.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
       security: []
   /api/v1/gen_serial_number:
     post:
@@ -174,6 +183,15 @@ paths:
                 expired_month: 7
                 expired_day: 14
           headers: {}
+        '400':
+          description: Invalid JSON request or serial-number parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
       security: []
   /api/v1/app/activation_codes:
     post:
@@ -229,6 +247,57 @@ paths:
                   message: { type: string }
         '500':
           description: Activation code could not be persisted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+      security: []
+  /api/v1/app/activation_codes/revoke:
+    post:
+      summary: Revoke an activation code.
+      description: Permanently removes the stored activation record. Protect this endpoint as an administrator operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activation_code]
+              properties:
+                activation_code: { type: string }
+      responses:
+        '200':
+          description: Activation code revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked]
+                properties:
+                  revoked: { type: boolean, enum: [true] }
+        '400':
+          description: Invalid JSON request.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '404':
+          description: Activation code not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '500':
+          description: Revocation could not be persisted.
           content:
             application/json:
               schema:

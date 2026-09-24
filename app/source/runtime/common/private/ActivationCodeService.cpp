@@ -2,12 +2,14 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <format>
 #include <fstream>
 #include <span>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <cryptopp/osrng.h>
 #include <cryptopp/sha.h>
@@ -38,6 +40,16 @@ namespace
         hash.CalculateDigest(digest.data(),
                              reinterpret_cast<const CryptoPP::byte*>(code.data()), code.size());
         return ToHex(digest);
+    }
+    bool IsValidActivationCode(std::string_view code)
+    {
+        if (code.size() != 69 || !code.starts_with("VMPX-")) return false;
+        for (char ch : code.substr(5))
+        {
+            if (!((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F')))
+                return false;
+        }
+        return true;
     }
 
     std::string GenerateActivationCode(CryptoPP::AutoSeededRandomPool& random)
@@ -76,6 +88,8 @@ vmpx::ActivationCodeService::ActivationCodeService(const std::filesystem::path& 
     {
         SaveConfig();
     }
+    auto prune_result = PruneExpiredRecordsLocked();
+    if (!prune_result) throw std::runtime_error(prune_result.error().message);
 }
 
 std::expected<std::string, vmpx::ActivationFailure> vmpx::ActivationCodeService::Create(
@@ -106,6 +120,8 @@ std::expected<std::string, vmpx::ActivationFailure> vmpx::ActivationCodeService:
     };
     CryptoPP::AutoSeededRandomPool random;
     std::lock_guard lock(mutex_);
+    auto prune_result = PruneExpiredRecordsLocked();
+    if (!prune_result) return std::unexpected(prune_result.error());
     std::string activation_code;
     std::string digest;
     do
@@ -133,13 +149,8 @@ std::expected<std::string, vmpx::ActivationFailure> vmpx::ActivationCodeService:
 std::expected<vmpx::SerialNumberInfo, vmpx::ActivationFailure> vmpx::ActivationCodeService::Activate(
     std::string_view activation_code, std::string_view hwid)
 {
-    if (activation_code.size() != 69 || !activation_code.starts_with("VMPX-"))
+    if (!IsValidActivationCode(activation_code))
         return std::unexpected(ActivationFailure{ActivationFailure::Code::not_found, "activation code not found"});
-    for (char ch : activation_code.substr(5))
-    {
-        if (!((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F')))
-            return std::unexpected(ActivationFailure{ActivationFailure::Code::not_found, "activation code not found"});
-    }
     auto decoded_hwid = HWID::FromBase64(hwid);
     if (!decoded_hwid)
         return std::unexpected(InvalidRequest(std::format("invalid HWID:{}", decoded_hwid.error())));
@@ -180,6 +191,76 @@ std::expected<vmpx::SerialNumberInfo, vmpx::ActivationFailure> vmpx::ActivationC
         return std::unexpected(ActivationFailure{ActivationFailure::Code::internal,
                                                  std::format("unable to generate daily serial:{}", serial_number.error())});
     return *serial_number;
+}
+
+std::expected<void, vmpx::ActivationFailure> vmpx::ActivationCodeService::Revoke(
+    std::string_view activation_code)
+{
+    const ActivationFailure not_found{ActivationFailure::Code::not_found, "activation code not found"};
+    if (!IsValidActivationCode(activation_code)) return std::unexpected(not_found);
+
+    std::lock_guard lock(mutex_);
+    const auto digest = HashActivationCode(activation_code);
+    auto it = config_.records.find(digest);
+    if (it == config_.records.end()) return std::unexpected(not_found);
+
+    auto removed_record = config_.records.extract(it);
+    try
+    {
+        SaveConfig();
+    }
+    catch (const std::exception& e)
+    {
+        config_.records.insert(std::move(removed_record));
+        return std::unexpected(ActivationFailure{
+            ActivationFailure::Code::internal,
+            std::format("unable to persist activation code revocation:{}", e.what())});
+    }
+    return {};
+}
+
+std::expected<void, vmpx::ActivationFailure>
+vmpx::ActivationCodeService::PruneExpiredRecordsLocked()
+{
+    const auto today = std::chrono::sys_days{UtcToday()};
+    const auto is_expired = [today](const Record& record)
+    {
+        const std::chrono::year_month_day expiration{
+            std::chrono::year{record.exp_year},
+            std::chrono::month{static_cast<unsigned>(record.exp_month)},
+            std::chrono::day{static_cast<unsigned>(record.exp_day)}};
+        return !expiration.ok() || std::chrono::sys_days{expiration} < today;
+    };
+    std::size_t expired_count = 0;
+    for (const auto& entry : config_.records)
+    {
+        if (is_expired(entry.second)) ++expired_count;
+    }
+    if (expired_count == 0) return {};
+
+    std::vector<RecordMap::node_type> removed_records;
+    removed_records.reserve(expired_count);
+    for (auto it = config_.records.begin(); it != config_.records.end();)
+    {
+        if (is_expired(it->second))
+            removed_records.push_back(config_.records.extract(it++));
+        else
+            ++it;
+    }
+
+    try
+    {
+        SaveConfig();
+    }
+    catch (const std::exception& e)
+    {
+        for (auto& record : removed_records)
+            config_.records.insert(std::move(record));
+        return std::unexpected(ActivationFailure{
+            ActivationFailure::Code::internal,
+            std::format("unable to prune expired activation codes:{}", e.what())});
+    }
+    return {};
 }
 
 void vmpx::ActivationCodeService::SaveConfig()

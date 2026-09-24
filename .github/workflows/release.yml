@@ -44,6 +44,26 @@ jobs:
           if errorlevel 1 exit /b %errorlevel%
           xmake build -vDy vmpx_server
 
+      - name: Run C++ regression tests
+        shell: cmd
+        run: |
+          xmake build test_serialgen
+          if errorlevel 1 exit /b %errorlevel%
+          xmake run test_serialgen
+          if errorlevel 1 exit /b %errorlevel%
+          xmake build test_zip
+          if errorlevel 1 exit /b %errorlevel%
+          xmake run test_zip
+          if errorlevel 1 exit /b %errorlevel%
+          xmake build test_activation
+          if errorlevel 1 exit /b %errorlevel%
+          xmake run test_activation
+          if errorlevel 1 exit /b %errorlevel%
+          xmake build test_packprocess
+          if errorlevel 1 exit /b %errorlevel%
+          xmake run test_packprocess
+          if errorlevel 1 exit /b %errorlevel%
+
       - name: Package runnable server
         shell: pwsh
         run: |

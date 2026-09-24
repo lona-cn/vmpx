@@ -9,6 +9,8 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <chrono>
+#include <cstddef>
 
 namespace vmpx
 {
@@ -108,8 +110,15 @@ namespace vmpx
 
     ProductInfo GenRandomProductInfo(size_t key_size, bool random_public_exponent = false);
 
-    std::expected<std::filesystem::path, std::string> PackApp(const std::filesystem::path& vmp_console_app_path,
-                                                              const std::filesystem::path& vmp_file_path,
-                                                              const std::filesystem::path& output_dir =
-                                                                  std::filesystem::path{});
+    struct PackProcessOptions
+    {
+        std::chrono::milliseconds timeout{std::chrono::minutes{10}};
+        std::size_t max_stdout_bytes{1024 * 1024};
+    };
+
+    std::expected<std::filesystem::path, std::string> PackApp(
+        const std::filesystem::path& vmp_console_app_path,
+        const std::filesystem::path& vmp_file_path,
+        const std::filesystem::path& output_dir = std::filesystem::path{},
+        PackProcessOptions process_options = {});
 }

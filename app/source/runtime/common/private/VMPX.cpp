@@ -1,6 +1,10 @@
 ﻿#include "../VMPX.h"
 
 #include <stdexcept>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <thread>
 
 #include <magic_enum.hpp>
 #include <ylt/struct_json/json_reader.h>
@@ -313,69 +317,160 @@ vmpx::ProductInfo vmpx::GenRandomProductInfo(size_t key_size, bool random_public
     return pi;
 }
 
-std::expected<std::filesystem::path, std::string> vmpx::PackApp(const std::filesystem::path& vmp_console_app_path,
-                                                                const std::filesystem::path& vmp_file_path,
-                                                                const std::filesystem::path& output_dir)
+std::expected<std::filesystem::path, std::string> vmpx::PackApp(
+    const std::filesystem::path& vmp_console_app_path,
+    const std::filesystem::path& vmp_file_path,
+    const std::filesystem::path& output_dir,
+    vmpx::PackProcessOptions process_options)
 {
+    if (process_options.timeout <= std::chrono::milliseconds::zero())
+        return std::unexpected{"pack process timeout must be positive"};
+
     pugi::xml_document doc;
     if (auto xml_parse_result = doc.load_file(vmp_file_path.c_str()); !xml_parse_result)
-    {
-        auto error_msg = xml_parse_result.description();
-        return std::unexpected(error_msg);
-    }
+        return std::unexpected(xml_parse_result.description());
+
     auto protection_node = doc.child("Document").child("Protection");
     if (protection_node.empty())
-    {
-        static constexpr std::string_view error_msg = R"(unable to find Node: "Document.Protection")";
-        return std::unexpected(std::string(error_msg));
-    }
+        return std::unexpected{R"(unable to find Node: "Document.Protection")"};
     auto input_file_name_attr = protection_node.attribute("InputFileName");
     if (input_file_name_attr.empty())
-    {
-        static constexpr std::string_view error_msg = R"(unable to find attribute: "InputFileName")";
-        return std::unexpected(std::string(error_msg));
-    }
-    auto input_file_name = input_file_name_attr.as_string();
+        return std::unexpected{R"(unable to find attribute: "InputFileName")"};
+
     std::filesystem::path app_file_path;
-    if (!ResolveContainedPath(vmp_file_path.parent_path(), input_file_name, app_file_path) ||
+    if (!ResolveContainedPath(vmp_file_path.parent_path(), input_file_name_attr.as_string(), app_file_path) ||
         !std::filesystem::is_regular_file(app_file_path))
         return std::unexpected{"input file path is invalid"};
+
     auto output_dir_tmp = output_dir.empty() ? app_file_path.parent_path() : output_dir;
     auto output_file_name_attr = protection_node.attribute("OutputFileName");
     auto default_output_name = vmpx::PathToUtf8(app_file_path.stem()) + "-vmp" +
         vmpx::PathToUtf8(app_file_path.extension());
     auto output_name = output_file_name_attr.empty() ? default_output_name : output_file_name_attr.as_string();
-    if (std::string_view{output_name}.find_first_of("/\\") != std::string_view::npos)
+    if (std::string_view{output_name}.find_first_of("/\\\\") != std::string_view::npos)
         return std::unexpected{"output file name must be a single file name"};
     std::filesystem::path output_path;
     if (!ResolveContainedPath(output_dir_tmp, output_name, output_path))
         return std::unexpected{"output file path is invalid"};
+
     auto output_file_arg = vmpx::PathToUtf8(output_path);
     auto vmp_file_arg = vmpx::PathToUtf8(vmp_file_path);
-    auto process_executable =
-        boost::process::v2::filesystem::path{vmp_console_app_path.native()};
+    auto process_executable = boost::process::v2::filesystem::path{vmp_console_app_path.native()};
     boost::asio::io_context ctx;
-    boost::asio::readable_pipe rp{ctx};
+    boost::asio::readable_pipe stdout_pipe{ctx};
+    std::string stdout_buffer;
+    stdout_buffer.reserve(std::min<std::size_t>(process_options.max_stdout_bytes, 4096));
+    std::atomic_bool output_too_large{};
+    std::atomic_bool output_storage_failed{};
+    std::atomic_bool output_read_failed{};
+    boost::system::error_code read_error;
     auto proc = boost::process::process{
         ctx, process_executable,
         {vmp_file_arg, output_file_arg},
-        boost::process::process_stdio{{}, rp, {}}
+        boost::process::process_stdio{{}, stdout_pipe, {}}
     };
-    std::string sub_proc_stdout_buf;
-    sub_proc_stdout_buf.reserve(4096);
-    boost::system::error_code ec;
-    boost::asio::read(rp, boost::asio::dynamic_buffer(sub_proc_stdout_buf), ec);
-    if (ec && ec != boost::asio::error::eof && ec.value() != 109)
+
+    std::thread stdout_reader([&]
     {
-        auto error_msg = std::format("subprocess io exception occurred:{}", ec.message());
-        return std::unexpected(error_msg);
-    }
-    proc.wait();
-    if (sub_proc_stdout_buf.rfind("Compilation completed") != std::string::npos)
+        std::array<char, 4096> read_buffer{};
+        while (true)
+        {
+            boost::system::error_code error;
+            const auto bytes_read = stdout_pipe.read_some(boost::asio::buffer(read_buffer), error);
+            if (bytes_read > 0 && !output_too_large.load(std::memory_order_relaxed))
+            {
+                if (bytes_read > process_options.max_stdout_bytes - stdout_buffer.size())
+                {
+                    output_too_large.store(true, std::memory_order_release);
+                }
+                else
+                {
+                    try
+                    {
+                        stdout_buffer.append(read_buffer.data(), bytes_read);
+                    }
+                    catch (...)
+                    {
+                        output_storage_failed.store(true, std::memory_order_release);
+                    }
+                }
+            }
+            if (!error) continue;
+            bool expected_close = error == boost::asio::error::eof ||
+                error == boost::asio::error::operation_aborted;
+#if defined(_WIN32)
+            expected_close = expected_close || error.value() == 109; // ERROR_BROKEN_PIPE
+#endif
+            if (!expected_close)
+            {
+                read_error = error;
+                output_read_failed.store(true, std::memory_order_release);
+            }
+            break;
+        }
+    });
+
+    const auto deadline = std::chrono::steady_clock::now() + process_options.timeout;
+    bool timed_out = false;
+    bool terminate_process = false;
+    int process_exit_code = -1;
+    boost::system::error_code process_error;
+    while (true)
     {
-        return output_path;
+        if (output_too_large.load(std::memory_order_acquire) ||
+            output_storage_failed.load(std::memory_order_acquire) ||
+            output_read_failed.load(std::memory_order_acquire))
+        {
+            terminate_process = true;
+            break;
+        }
+        boost::system::error_code state_error;
+        const bool running = proc.running(state_error);
+        if (state_error)
+        {
+            process_error = state_error;
+            terminate_process = true;
+            break;
+        }
+        if (!running)
+        {
+            process_exit_code = proc.exit_code();
+            break;
+        }
+        if (std::chrono::steady_clock::now() >= deadline)
+        {
+            timed_out = true;
+            terminate_process = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{25});
     }
-    return std::unexpected(std::format("pack failed,stdout log:\n{}", sub_proc_stdout_buf));
+
+    if (terminate_process)
+    {
+        boost::system::error_code terminate_error;
+        proc.terminate(terminate_error);
+        if (!process_error) process_error = terminate_error;
+    }
+    boost::system::error_code wait_error;
+    process_exit_code = proc.wait(wait_error);
+    if (!process_error) process_error = wait_error;
+    stdout_reader.join();
+
+    if (timed_out) return std::unexpected{"pack process timed out"};
+    if (output_too_large) return std::unexpected{"pack process output exceeded the configured limit"};
+    if (output_storage_failed)
+        return std::unexpected{"unable to store pack process output"};
+    if (read_error) return std::unexpected{std::format("unable to read pack process output:{}", read_error.message())};
+    if (process_error) return std::unexpected{std::format("unable to wait for pack process:{}", process_error.message())};
+    if (process_exit_code != 0)
+        return std::unexpected{std::format("pack process exited with code {}", process_exit_code)};
+    if (stdout_buffer.find("Compilation completed") == std::string::npos)
+        return std::unexpected{std::format("pack failed,stdout log:\n{}", stdout_buffer)};
+    std::error_code fs_error;
+    if (!std::filesystem::is_regular_file(output_path, fs_error) || fs_error)
+        return std::unexpected{"pack process reported success without creating an output file"};
+    return output_path;
 }
 
 

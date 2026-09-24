@@ -167,6 +167,8 @@ std::expected<vmpx::app_pack::AppInfo, std::string> vmpx::app_pack::AppPackServi
     std::string_view name, std::span<uint8_t> zip_file_data, std::filesystem::path vmp_file_path)
 {
     if (!IsSafeAppName(name)) return std::unexpected{"invalid application name"};
+    if (zip_file_data.size() > vmpx::ZipExtractionLimits{}.max_archive_bytes)
+        return std::unexpected{"uploaded archive exceeds the maximum compressed size"};
 
     static std::atomic_uint64_t stage_sequence{};
     const auto stage_id = std::to_string(stage_sequence.fetch_add(1, std::memory_order_relaxed));

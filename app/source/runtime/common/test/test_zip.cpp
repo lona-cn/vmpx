@@ -3,11 +3,14 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <zip.h>
 
 #include "Utils.h"
 #include "ZipUtils.h"
+
 
 namespace
 {
@@ -39,6 +42,26 @@ namespace
         return false;
     }
 }
+bool CreateArchive(const std::filesystem::path& path,
+                   const std::vector<std::pair<std::string, std::string>>& entries)
+{
+    int error = 0;
+    auto archive_path = vmpx::PathToUtf8(path);
+    auto* archive = zip_open(archive_path.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &error);
+    if (!archive) return false;
+    for (const auto& [name, contents] : entries)
+    {
+        if (!AddEntry(archive, name.c_str(), contents))
+        {
+            zip_discard(archive);
+            return false;
+        }
+    }
+    if (zip_close(archive) == 0) return true;
+    zip_discard(archive);
+    return false;
+}
+
 
 int main()
 {
@@ -51,6 +74,9 @@ int main()
     const auto device_path = test_dir / "device.zip";
     const auto symlink_path = test_dir / "symlink.zip";
     const auto unicode_path = test_dir / "unicode.zip";
+    const auto entries_path = test_dir / "entries.zip";
+    const auto expanded_path = test_dir / "expanded.zip";
+    const auto total_path = test_dir / "total.zip";
     std::filesystem::create_directories(output_dir);
     struct Cleanup
     {
@@ -65,6 +91,33 @@ int main()
     if (!CreateArchive(archive_path, "nested/app.vmp", "project") ||
         !vmpx::ExtractZipSafely(archive_path, output_dir))
         return 1;
+    vmpx::ZipExtractionLimits limits{};
+    limits.max_archive_bytes = 1;
+    if (vmpx::ExtractZipSafely(archive_path, test_dir / "oversized", limits))
+        return 8;
+
+    if (!CreateArchive(entries_path, std::vector<std::pair<std::string, std::string>>{
+            {"one.txt", "1"}, {"two.txt", "2"}}))
+        return 9;
+    limits = {};
+    limits.max_entries = 1;
+    if (vmpx::ExtractZipSafely(entries_path, test_dir / "too-many", limits))
+        return 10;
+
+    if (!CreateArchive(expanded_path, "large.txt", "12345"))
+        return 11;
+    limits = {};
+    limits.max_entry_bytes = 4;
+    if (vmpx::ExtractZipSafely(expanded_path, test_dir / "too-large-entry", limits))
+        return 12;
+
+    if (!CreateArchive(total_path, std::vector<std::pair<std::string, std::string>>{
+            {"one.txt", "123"}, {"two.txt", "456"}}))
+        return 13;
+    limits = {};
+    limits.max_total_bytes = 5;
+    if (vmpx::ExtractZipSafely(total_path, test_dir / "too-large-total", limits))
+        return 14;
     std::ifstream extracted(output_dir / "nested" / "app.vmp", std::ios::binary);
     std::string contents{std::istreambuf_iterator<char>{extracted}, {}};
     if (!CreateArchive(unicode_path, "\xE8\xB5\x84\xE6\x96\x99/\xE7\xA8\x8B\xE5\xBA\x8F.vmp", "unicode") ||

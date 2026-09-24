@@ -22,6 +22,7 @@
 #include "AppPackService.h"
 #include "ActivationCodeService.h"
 #include "Utils.h"
+#include "ZipUtils.h"
 
 
 struct ErrorEntity
@@ -53,6 +54,15 @@ struct ActivationCodeResponse
     int exp_year;
     int exp_month;
     int exp_day;
+};
+struct RevokeActivationCodeRequest
+{
+    std::string activation_code;
+};
+
+struct ActivationCodeRevokedResponse
+{
+    bool revoked;
 };
 
 
@@ -141,9 +151,9 @@ namespace
         {
             return Handler(ctx);
         }
-        catch (const std::exception& e)
+        catch (const std::exception&)
         {
-            return CtxSendJson(ctx, ErrorEntity{std::format("application request failed:{}", e.what())},
+            return CtxSendJson(ctx, ErrorEntity{"application request failed"},
                                HTTP_STATUS_INTERNAL_SERVER_ERROR);
         }
         catch (...)
@@ -162,18 +172,14 @@ namespace
             {
                 auto charset_opt = vmpx::Charset::DetCharset(body);
                 if (!charset_opt)
-                    return CtxSendJson(ctx, ErrorEntity{"can not detect body charset"});
+                    return CtxSendJson(ctx, ErrorEntity{"body charset could not be detected"},
+                                       HTTP_STATUS_BAD_REQUEST);
                 auto utf_body = boost::locale::conv::to_utf<char>(body, *charset_opt);
                 std::error_code ec;
                 struct_json::from_json(req, utf_body, ec);
                 if (ec)
-                {
-                    return CtxSendJson(ctx, ErrorEntity{
-                                           .message = std::format(
-                                               "unable to parse json with error: {}\njson string:\n{}",
-                                               (ec).message(), utf_body)
-                                       }, HTTP_STATUS_BAD_REQUEST);
-                }
+                    return CtxSendJson(ctx, ErrorEntity{"unable to parse JSON request"},
+                                       HTTP_STATUS_BAD_REQUEST);
             }
             std::chrono::year_month_day expiration{
                 std::chrono::year{req.serial_info.exp_year},
@@ -188,7 +194,7 @@ namespace
             {
                 auto hwid = vmpx::HWID::FromBase64(req.serial_info.hwid);
                 if (!hwid)
-                    return CtxSendJson(ctx, std::format("unable to parse HWID:{}", hwid.error()),
+                    return CtxSendJson(ctx, ErrorEntity{"invalid HWID"},
                                        HTTP_STATUS_BAD_REQUEST);
                 hwid->network_adapters.clear();
                 req.serial_info.hwid = hwid->ToBase64();
@@ -207,15 +213,16 @@ namespace
             }
             return CtxSendJson(ctx, serial_number_info.value());
         }
-        catch (std::exception& e)
+        catch (const std::exception&)
         {
-            return CtxSendJson(ctx, ErrorEntity{.message = std::format("unknown error:{}", e.what())},
+            return CtxSendJson(ctx, ErrorEntity{"request processing failed"},
                                HTTP_STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 
     int OnGenRandomProductInfo(const HttpContextPtr& ctx) noexcept
     {
+        uint64_t key_size = 0;
         try
         {
             auto& req_json = ctx->json();
@@ -224,7 +231,6 @@ namespace
                 return CtxSendJson(ctx, ErrorEntity{"key_size must be an integer"},
                                    HTTP_STATUS_BAD_REQUEST);
             const auto& key_size_json = req_json["key_size"];
-            uint64_t key_size;
             if (key_size_json.is_number_unsigned())
             {
                 key_size = key_size_json.get<uint64_t>();
@@ -240,13 +246,22 @@ namespace
             if (key_size < 1024 || key_size > 4096 || key_size % 1024 != 0)
                 return CtxSendJson(ctx, ErrorEntity{"key_size must be 1024, 2048, 3072, or 4096"},
                                    HTTP_STATUS_BAD_REQUEST);
+        }
+        catch (...)
+        {
+            return CtxSendJson(ctx, ErrorEntity{"unable to parse JSON request"},
+                               HTTP_STATUS_BAD_REQUEST);
+        }
+
+        try
+        {
             auto pi = vmpx::GenRandomProductInfo(static_cast<size_t>(key_size));
             auto pi_entity = vmpx::ProductInfoEntity::FromProductInfo(pi);
             return CtxSendJson(ctx, pi_entity);
         }
-        catch (std::exception& e)
+        catch (const std::exception&)
         {
-            return CtxSendJson(ctx, ErrorEntity{.message = std::format("unknown error:{}", e.what())},
+            return CtxSendJson(ctx, ErrorEntity{"request processing failed"},
                                HTTP_STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -268,7 +283,7 @@ namespace
         std::error_code ec;
         struct_json::from_json(request, ctx->body(), ec);
         if (ec)
-            return CtxSendJson(ctx, ErrorEntity{std::format("unable to parse activation request:{}", ec.message())},
+            return CtxSendJson(ctx, ErrorEntity{"unable to parse JSON request"},
                                HTTP_STATUS_BAD_REQUEST);
         auto result = activation_service->Create(request.product_info, request.serial_info);
         if (!result)
@@ -285,7 +300,7 @@ namespace
         std::error_code ec;
         struct_json::from_json(request, ctx->body(), ec);
         if (ec)
-            return CtxSendJson(ctx, ErrorEntity{std::format("unable to parse activation request:{}", ec.message())},
+            return CtxSendJson(ctx, ErrorEntity{"unable to parse JSON request"},
                                HTTP_STATUS_BAD_REQUEST);
         auto result = activation_service->Activate(request.activation_code, request.hwid);
         if (!result)
@@ -293,10 +308,28 @@ namespace
         return CtxSendJson(ctx, *result);
     }
 
+    int OnRevokeActivationCode(const HttpContextPtr& ctx)
+    {
+        RevokeActivationCodeRequest request{};
+        std::error_code ec;
+        struct_json::from_json(request, ctx->body(), ec);
+        if (ec)
+            return CtxSendJson(ctx, ErrorEntity{"unable to parse JSON request"},
+                               HTTP_STATUS_BAD_REQUEST);
+        auto result = activation_service->Revoke(request.activation_code);
+        if (!result)
+            return CtxSendJson(ctx, ErrorEntity{result.error().message},
+                               ActivationHttpStatus(result.error().code));
+        return CtxSendJson(ctx, ActivationCodeRevokedResponse{true});
+    }
+
 
     int OnAppAdd(const HttpContextPtr& ctx)
     {
         auto& request = ctx->request;
+        if (request->content_length > vmpx::ZipExtractionLimits{}.max_archive_bytes)
+            return CtxSendJson(ctx, ErrorEntity{"uploaded archive exceeds the maximum compressed size"},
+                               HTTP_STATUS_PAYLOAD_TOO_LARGE);
         auto& queries = request->query_params;
         auto name_it = queries.find("name");
         auto vmp_file_path_it = queries.find("vmp_file_path");
@@ -480,6 +513,7 @@ void vmpx::StartServer(std::string_view ip, uint16_t port,
     http_service->Static("/", "./assets/static");
     http_service->POST("/gen_serial_number", OnGenSerialNumber);
     http_service->POST("/gen_random_product_info", OnGenRandomProductInfo);
+    http_service->POST("/app/activation_codes/revoke", HandleAppRequest<OnRevokeActivationCode>);
     http_service->POST("/app/activation_codes", HandleAppRequest<OnCreateActivationCode>);
     http_service->POST("/app/activate", HandleAppRequest<OnActivate>);
     // AppPack Service

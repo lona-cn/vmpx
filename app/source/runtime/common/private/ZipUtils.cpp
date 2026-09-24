@@ -71,26 +71,35 @@ namespace
     }
 }
 
-bool vmpx::ExtractZipSafely(const std::filesystem::path& zip_path, const std::filesystem::path& output_dir)
+bool vmpx::ExtractZipSafely(const std::filesystem::path& zip_path, const std::filesystem::path& output_dir,
+                           ZipExtractionLimits limits)
 {
+    std::error_code fs_error;
+    const auto archive_bytes = std::filesystem::file_size(zip_path, fs_error);
+    if (fs_error || archive_bytes > limits.max_archive_bytes) return false;
+
     auto zip_path_str = vmpx::PathToUtf8(zip_path);
     int err = 0;
     zip* raw_archive = zip_open(zip_path_str.c_str(), ZIP_RDONLY, &err);
     if (!raw_archive) return false;
     std::unique_ptr<zip, decltype(&zip_discard)> archive{raw_archive, &zip_discard};
-    std::error_code fs_error;
     std::filesystem::create_directories(output_dir, fs_error);
     if (fs_error) return false;
     auto root = std::filesystem::absolute(output_dir, fs_error).lexically_normal();
     if (fs_error) return false;
     zip_int64_t num_entries = zip_get_num_entries(archive.get(), 0);
-    if (num_entries < 0) return false;
+    if (num_entries < 0 || static_cast<std::uint64_t>(num_entries) > limits.max_entries) return false;
+    std::uint64_t total_uncompressed_bytes = 0;
     std::array<char, 64 * 1024> buffer{};
     for (zip_int64_t i = 0; i < num_entries; ++i)
     {
         struct zip_stat st;
         zip_stat_init(&st);
         if (zip_stat_index(archive.get(), i, 0, &st) != 0 || !st.name) return false;
+        if (st.size > limits.max_entry_bytes ||
+            st.size > limits.max_total_bytes - total_uncompressed_bytes)
+            return false;
+        total_uncompressed_bytes += st.size;
 
         std::filesystem::path relative;
         if (!IsSafeRelativePath(st.name, relative)) return false;
@@ -129,6 +138,7 @@ bool vmpx::ExtractZipSafely(const std::filesystem::path& zip_path, const std::fi
             if (!output) return false;
             remaining -= static_cast<zip_uint64_t>(count);
         }
+        if (zip_fread(input.get(), buffer.data(), 1) != 0) return false;
         if (zip_fclose(input.release()) != 0) return false;
         output.close();
         if (!output) return false;

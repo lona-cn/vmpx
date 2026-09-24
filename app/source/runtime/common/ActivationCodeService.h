@@ -34,6 +34,7 @@ namespace vmpx
             const ProductInfoEntity& product_info, const SerialInfo& serial_info);
         std::expected<SerialNumberInfo, ActivationFailure> Activate(
             std::string_view activation_code, std::string_view hwid);
+        std::expected<void, ActivationFailure> Revoke(std::string_view activation_code);
 
     private:
         struct Record
@@ -45,14 +46,16 @@ namespace vmpx
             int exp_month{};
             int exp_day{};
         };
+        using RecordMap = std::unordered_map<std::string, Record>;
         struct Config
         {
-            std::unordered_map<std::string, Record> records;
+            RecordMap records;
         };
 
 
         void SaveConfig();
         void LoadConfig();
+        std::expected<void, ActivationFailure> PruneExpiredRecordsLocked();
 
         std::mutex mutex_;
         std::filesystem::path config_path_;

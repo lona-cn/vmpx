@@ -51,7 +51,7 @@
 
 ### 自动构建与发布
 
-提交到默认分支 `master` 后，GitHub Actions 会构建 Windows x64 版本；构建成功才会创建标签为 `snapshot-<完整提交 SHA>` 的预发布版本。面向 `master` 的 Pull Request 只执行构建，不发布 Release。每次构建的压缩包也可以从对应的 Actions 运行记录下载。
+提交到默认分支 `master` 后，GitHub Actions 会构建 Windows x64 版本并运行 C++ 回归测试；全部通过后才会创建标签为 `snapshot-<完整提交 SHA>` 的预发布版本。面向 `master` 的 Pull Request 执行构建和测试，不发布 Release。每次构建的压缩包也可以从对应的 Actions 运行记录下载。
 
 在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；服务程序、依赖文件、配置和 Web 页面需保持原有目录结构。请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
 
@@ -78,6 +78,7 @@ docker run --rm \
 | `/api/v1/gen_random_product_info`     | POST | 生成随机 ProductInfo              |
 | `/api/v1/gen_serial_number`           | POST | 根据产品信息生成序列号            |
 | `/api/v1/app/activation_codes`        | POST | 管理端创建每日激活码              |
+| `/api/v1/app/activation_codes/revoke` | POST | 管理端撤销激活码              |
 | `/api/v1/app/activate`                | POST | 客户端提交激活码和 HWID，换取当日序列号 |
 | `/api/v1/app/list`                    | GET  | 获取 App 列表                     |
 | `/api/v1/app/add`                     | POST | 上传新 App                        |
@@ -86,7 +87,9 @@ docker run --rm \
 
 详细接口定义请查看项目 OpenAPI 规范。
 
-`POST /api/v1/app/activation_codes` 是管理端操作；激活码原文只在创建时返回，服务端以 SHA-256 摘要索引记录。`data/activation_codes.yml` 会持久化对应 ProductInfo（包含私钥）、用户信息和授权到期日，必须限制数据目录的操作系统权限并纳入安全备份。服务本身没有 API 身份认证；反向代理应保护控制台及所有管理接口，只向客户开放 `/api/v1/app/activate`，并使用 HTTPS。
+`/api/v1/app/add` 接受最大 256 MiB 的压缩包，最多 10,000 个条目、单文件解压后最多 512 MiB、总解压量最多 1 GiB。libhv 在调用应用处理器前会缓冲 HTTP 请求体，因此反向代理还必须设置不超过 256 MiB 的请求体上限。`/api/v1/app/pack` 的 VMProtect 子进程最多运行 10 分钟，捕获的标准输出限制为 1 MiB。
+
+`POST /api/v1/app/activation_codes` 与 `/api/v1/app/activation_codes/revoke` 是管理端操作；激活码原文只在创建时返回，服务端以 SHA-256 摘要索引记录。启动时和创建新激活码前会清理过期记录。`data/activation_codes.yml` 会持久化对应 ProductInfo（包含私钥）、用户信息和授权到期日，必须限制数据目录的操作系统权限并纳入安全备份。服务本身没有 API 身份认证；反向代理应保护控制台及所有管理接口，只向客户开放 `/api/v1/app/activate`，并使用 HTTPS。
 
 客户端每天按 UTC 日期提交 `{ "activation_code": "...", "hwid": "<VMProtect HWID 的 Base64>" }`，收到当日序列号后调用 `VMProtectSetSerialNumber`。此仓库没有客户端程序源码；SDK 调用需集成在使用者自己的受保护应用中。
 
