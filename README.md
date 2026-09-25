@@ -51,15 +51,15 @@
 
 ### 自动构建与发布
 
-提交到默认分支 `master` 后，GitHub Actions 会构建 Windows x64 版本、构建并运行 `VMProtectSDK64` demo 的未加壳冒烟检查，并运行 C++ 回归测试；全部通过后才会创建标签为 `snapshot-<完整提交 SHA>` 的预发布版本。面向 `master` 的 Pull Request 执行构建和测试，不发布 Release。每次构建的压缩包也可以从对应的 Actions 运行记录下载。
+提交到默认分支 `master` 后，GitHub Actions 会构建 Windows x64 版本、构建并运行 `VMProtectSDK64` demo 的未加壳冒烟检查，并运行 C++ 回归测试；全部通过后创建 `snapshot-<完整提交 SHA>` 预发布版本。推送 `v*` 版本 tag 会构建 Windows x64 版本并以该 tag 创建 GitHub Release；`v1.2.3-rc.1` 等带连字符的 tag 会发布为预发布版本。面向 `master` 的 Pull Request 执行构建和测试，不发布 Release。每次构建的压缩包也可以从对应的 Actions 运行记录下载。
 
-CI 使用 GitHub Secret `VMPROTECT_CON_PASSPHRASE` 解密 `app/binaries/VMProtect_Con.zip`；PR 工作流无法访问该 Secret 时会跳过解密。明文仅在构建和测试期间存在，并在打包前删除，不会包含在 Actions artifact 或 Release 中。
+CI 使用 GitHub Secret `VMPROTECT_CON_PASSPHRASE` 解密 `app/binaries/VMProtect_Con.zip`；master push 和版本 tag 构建需要该 Secret，PR 工作流无法访问该 Secret 时会跳过解密。明文仅在构建和测试期间存在，并在打包前删除，不会包含在 Actions artifact 或 Release 中。
 
 在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；服务程序、依赖文件、配置和 Web 页面需保持原有目录结构。请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
 
 ### Linux x86_64：Docker + Wine + noVNC
 
-Linux 容器运行已发布的 Windows x64 程序，不是原生 Linux 构建。VMProtect 不包含在仓库或发布包内；需单独提供有合法授权的 `VMProtect_Con.exe`。推送 `v*` 版本 tag 会自动构建并发布 `ghcr.io/lona-cn/vmpx:<tag>`；非预发布 tag 也会更新 `latest`。首次推送后需在 GitHub Packages 将镜像包可见性设为 Public，公开拉取才无需认证。
+Linux 容器运行已发布的 Windows x64 程序，不是原生 Linux 构建。VMProtect 不包含在仓库或发布包内；需单独提供有合法授权的 `VMProtect_Con.exe`。推送 `v*` 版本 tag 会自动构建 Windows 发布包并创建 GitHub Release，同时构建并发布 `ghcr.io/lona-cn/vmpx:<tag>`；非预发布 tag 也会更新镜像 `latest`。首次推送后需在 GitHub Packages 将镜像包可见性设为 Public，公开拉取才无需认证。
 
 ```sh
 docker pull ghcr.io/lona-cn/vmpx:latest

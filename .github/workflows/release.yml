@@ -3,6 +3,7 @@ name: Build and release
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
 
@@ -123,7 +124,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish commit release
+    name: Publish release
     if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
@@ -136,18 +137,31 @@ jobs:
           name: vmpx-windows-x64
           path: dist
 
-      - name: Publish prerelease
+      - name: Publish version or snapshot release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          tag="snapshot-${GITHUB_SHA}"
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            tag="$GITHUB_REF_NAME"
+            title="VMPX $tag"
+            release_flags=(--verify-tag)
+            if [[ "$tag" == *-* ]]; then
+              release_flags+=(--prerelease --latest=false)
+            fi
+          else
+            tag="snapshot-${GITHUB_SHA}"
+            title="VMPX ${GITHUB_SHA:0:12}"
+            release_flags=(--prerelease --latest=false)
+          fi
+
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists; nothing to publish."
             exit 0
           fi
+
           gh release create "$tag" dist/*.zip \
             --target "$GITHUB_SHA" \
-            --title "VMPX ${GITHUB_SHA:0:12}" \
-            --notes "Automated Windows x64 build for commit $GITHUB_SHA. VMProtect_Con.exe is not included; a licensed copy is required for packing." \
-            --prerelease --latest=false
+            --title "$title" \
+            --notes "Automated Windows x64 build for $tag. VMProtect_Con.exe is not included; a licensed copy is required for packing." \
+            "${release_flags[@]}"
