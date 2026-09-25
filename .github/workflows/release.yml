@@ -108,13 +108,33 @@ jobs:
           $matches = @(Get-ChildItem -Path build -Filter vmpx_server.exe -Recurse -File)
           if ($matches.Count -ne 1) { throw "Expected one vmpx_server.exe, found $($matches.Count)" }
           $root = $matches[0].Directory.FullName
-          foreach ($required in @('assets/static/index.html', 'config/log4cplus.properties')) {
-            if (-not (Test-Path (Join-Path $root $required))) { throw "Missing runtime file: $required" }
+          $staticSource = Join-Path $env:GITHUB_WORKSPACE 'app/assets/main/static'
+          $requiredFiles = @(
+            $matches[0].FullName
+            (Join-Path $root 'KeyGen64.dll')
+            (Join-Path $root 'config/log4cplus.properties')
+            (Join-Path $staticSource 'index.html')
+            (Join-Path $env:GITHUB_WORKSPACE 'LICENSE')
+          )
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing runtime release input: $file" }
           }
-          Copy-Item LICENSE (Join-Path $root 'LICENSE')
+
+          $stage = Join-Path $env:RUNNER_TEMP 'vmpx-release'
+          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+          $stageStatic = Join-Path $stage 'assets/static'
+          $stageConfig = Join-Path $stage 'config'
+          New-Item -ItemType Directory -Path $stageStatic, $stageConfig -Force | Out-Null
+          Copy-Item -LiteralPath $matches[0].FullName -Destination $stage
+          Copy-Item -LiteralPath (Join-Path $root 'KeyGen64.dll') -Destination $stage
+          Copy-Item -Path (Join-Path $staticSource '*') -Destination $stageStatic -Recurse -Force
+          Copy-Item -Path (Join-Path $root 'config/*') -Destination $stageConfig -Recurse -Force -Exclude '.gitkeep'
+          Copy-Item -LiteralPath 'LICENSE' -Destination $stage
+
+          Remove-Item -Path dist -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           $archive = "dist/vmpx-windows-x64-$($env:GITHUB_SHA.Substring(0, 12)).zip"
-          Compress-Archive -Path (Join-Path $root '*') -DestinationPath $archive
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7

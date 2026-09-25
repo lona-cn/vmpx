@@ -55,7 +55,7 @@
 
 CI 使用 GitHub Secret `VMPROTECT_CON_PASSPHRASE` 解密 `app/binaries/VMProtect_Con.zip`；master push 和版本 tag 构建需要该 Secret，PR 工作流无法访问该 Secret 时会跳过解密。明文仅在构建和测试期间存在，并在打包前删除，不会包含在 Actions artifact 或 Release 中。
 
-在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；服务程序、依赖文件、配置和 Web 页面需保持原有目录结构。请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
+在 [Releases](https://github.com/lona-cn/vmpx/releases) 下载压缩包并解压；包内仅包含服务程序、必需运行时 DLL、配置、静态 Web 页面和 `LICENSE`，不包含测试程序、`.map` 调试符号、demo、测试资源或本地运行产生的 `data`/`logs`。应用运行时会创建所需的数据和日志目录。服务程序、依赖文件、配置和 Web 页面需保持原有目录结构；请在解压后的目录启动程序。压缩包不包含 `VMProtect_Con.exe`，使用加壳功能时需自行提供合法授权的可执行文件路径。
 
 ### Linux x86_64：Docker + Wine + noVNC
 
