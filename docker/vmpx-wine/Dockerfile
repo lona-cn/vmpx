@@ -26,7 +26,8 @@ RUN dpkg --add-architecture i386 \
         xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-COPY docker/vmpx-wine/entrypoint.sh /usr/local/bin/vmpx-wine-entrypoint
+COPY entrypoint.sh /usr/local/bin/vmpx-wine-entrypoint
+COPY payload/ /opt/vmpx/
 
 RUN groupadd --system --gid 10001 vmpx \
     && useradd --system --uid 10001 --gid vmpx --home-dir /opt/vmpx --no-create-home vmpx \
